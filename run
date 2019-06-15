@@ -2,4 +2,4 @@
 
 #This is a quick script that allows you to run the generated image on qemu.
 
-qemu-system-x86_64 -drive file=build/OS.flp,format=raw
+qemu-system-x86_64 -fda build/OS.flp -boot a
