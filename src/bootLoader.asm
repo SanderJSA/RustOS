@@ -4,6 +4,10 @@
 	xor ax, ax
 	mov ds, ax
 
+	mov ax, 0x2401
+	int 0x15 		; enable A20 bit
+
+	
 ;-------------------------------; Load kernel to memory
 
 	mov dl, 0x0		; Select 1st floppy disk
@@ -30,12 +34,12 @@ readDrive:
 	or eax,1		;
 	mov cr0,eax		; Entering protected mode
 	
-	jmp 0x8:init_pm
+	jmp CODE_SEG:init_pm
 	
 	[BITS 32]
 
 init_pm :
-	mov ax, 0x10
+	mov ax, DATA_SEG
 	mov ds, ax
 	mov es, ax
 	mov fs, ax
@@ -45,11 +49,6 @@ init_pm :
 	mov ebp, 0x90000
 	mov esp, ebp
 	
-
-	;mov byte al, '@'
-	;mov byte ah, 0x0F
-	;mov word [0xB8000], ax
-
 	call 0x1000
 	jmp $	
 
@@ -58,29 +57,33 @@ init_pm :
 [bits 16]
 
 GDT:
-;null :
-   dd 0x0
-   dd 0x0
+	gdt_null :
+   	dd 0x0
+   	dd 0x0
 
-;code :
-   dw 0xffff      ;Limit
-   dw 0x0         ;Base
-   db 0x0         ;Base
-   db 10011010b    ;1st flag, Type flag
-   db 11001111b    ;2nd flag, Limit
-   db 0x0         ;Base
+ 	gdt_code:
+   	dw 0xffff			;Limit
+   	dw 0x0			;Base
+   	db 0x0			;Base
+   	db 10011010b			;1st flag, Type flag
+   	db 11001111b			;2nd flag, Limit
+   	db 0x0			;Base
 
-;data :
-   dw 0xffff      
-   dw 0x0         
-   db 0x0
-   db 10010010b
-   db 11001111b
-   db 0x0
+ 	gdt_data:
+   	dw 0xffff      
+   	dw 0x0         
+   	db 0x0
+   	db 10010010b
+   	db 11001111b
+   	db 0x0
+ 	gdt_end:
 
 gdt_descriptor :
-   dw $ - GDT - 1       ;16-bit size
-   dd GDT            ;32-bit start address
+   dw gdt_end - GDT - 1       	;16-bit size
+   dd GDT            		;32-bit start address
+
+CODE_SEG equ gdt_code - GDT
+DATA_SEG equ gdt_data - GDT
 
 ;-------------------------------;
 
