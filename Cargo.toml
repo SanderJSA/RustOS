@@ -1,0 +1,9 @@
+[package]
+name = "rust_os"
+version = "0.1.0"
+authors = ["Sander JSA <sanderjsa@hotmail.com>"]
+
+[lib]
+name = "rust_kernel"
+path = "src/lib.rs"
+crate-type = ["staticlib"]
