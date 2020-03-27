@@ -2,7 +2,7 @@
 ; Constants
 ;===========;
 
-    KERNEL_ADDRESS equ 0x1000000
+    KERNEL_ADDRESS equ 0x100000
 
     pmap_len       equ 0x7F04
     pmap_end       equ 0x7F38
@@ -11,6 +11,7 @@
     pml4t		   equ 0x1000
     pdpt		   equ pml4t + 0x1000
     pdt			   equ pdpt + 0x1000
+    pt             equ pdt + 0x1000
 
     DATA_SEG       equ 0x10
     CODE_SEG       equ 0x8
@@ -103,41 +104,30 @@ init_pm :
 ; Set up Page Tables
 ;====================;
 
-    mov edi, pml4t     ; Clear Page Table
-    mov ecx, 0x4000    ;
-    xor eax, eax       ;
-    rep stosd          ;
+    mov edi, pml4t               ; Set the destination index to pml4t.
+    mov ecx, 0x1000              ; Clear all entries
+    xor eax, eax
+    rep stosd
 
-    ; PML4T @ 0x1000
-    mov eax, pdpt      ; PDP base address
-    or eax, 0b11       ; P and R/W bits
-    mov ebx, pml4t     ; PMPL4 base address
-    mov [ebx], eax
+    ; Identity map the first 2MB for kernel and VGA
+    mov edi, pml4t               ; get address of PML4T
+    mov cr3, edi                 ; Set Paging entry point to pml4t's address
+    mov DWORD [edi], pdpt | 0x03 ; PML4T[0] = PDPT[0] with read and write properties on
 
-    ; PDP @ 0x2000; maps 64Go
-    mov eax, pdt        ; PD base address
-    mov ebx, pdpt       ; PDP physical address
-    mov ecx, 64         ; 64 PDP
-    build_PDP:
-        or eax, 0b11
-        mov [ebx], eax
-        add ebx, 0x8
-        add eax, 0x1000 ; next PD page base address
-        loop build_PDP
+    mov edi, pdpt                ; get address of PDPT
+    mov DWORD [edi], pdt | 0x03  ; PDPT[0] = PDT[0] with read and write properties on
 
-    ; PD @ 0x3000 (ends at 0x4000, fits below 0x7c00)
-    ; 1 entry maps a 2MB page, the 1st starts at 0x0
-    mov eax, 0x0        ; 1st page physical base address
-    mov ebx, 0x3000     ; PD physical base address
-    mov ecx, 512
+    mov edi, pdt                 ; get address of PDT
+    mov DWORD [edi], pt | 0x03   ; PDT[0] = PT[0] with read and write properties on
 
-    build_PD:
-        or eax, 0b10000011 ; P + R/W + PS (bit for 2MB page)
-        mov [ebx], eax
-        add ebx, 0x8
-        add eax, 0x200000  ; next 2MB physical page
-        loop build_PD
-    ; (tables end at 0x4000 => fits before Bios boot sector at 0x7c00)
+    mov edi, pt                  ; get address of PT
+    mov ebx, 0x03                ; Set page start and properties
+    mov ecx, 512                 ; Repeat for 512 entries
+.BuildPages:
+    mov DWORD [edi], ebx         ; Write page info
+    add ebx, 0x1000              ; Go to next Page
+    add edi, 8                   ; Go to next Page Table entry
+    loop .BuildPages             ; Repeat 512 times
 
 ;=============================;
 ; Protected mode to Long mode
@@ -151,10 +141,7 @@ init_pm :
     or eax, 1 << 7      ;
     mov cr4, eax        ;
 
-    mov eax, pml4t      ; Load CR3 with PML4 base address
-    mov cr3, eax        ;
-
-    mov ecx, 0xC0000080 ; Set Long Mode enabled bit in EFER register (address 0xC0000080)
+    mov ecx, 0xC0000080 ; Set Long Mode enabled bit in EFER register
     rdmsr               ;
     or eax, 1 << 8      ;
     wrmsr               ;
@@ -174,12 +161,19 @@ init_pm :
     [bits 64]
 
 init_lm:
+    mov ax, DATA_SEG        ; Set up data segments
+	mov ds, ax              ;
+	mov es, ax              ;
+	mov fs, ax              ;
+	mov gs, ax              ;
+	mov ss, ax              ;
+
 	mov rbp, 0x90000        ; Set up stack
 	mov rsp, rbp            ;
 
 	mov esi, [pmap_end]     ; Move loaded kernel
 	mov edi, KERNEL_ADDRESS ; To KERNEL_ADDRESS
-	mov ecx, 0x1000         ;
+	mov ecx, 0x3000         ;
 	rep movsd               ;
 
     call KERNEL_ADDRESS     ; call kernel
@@ -204,8 +198,8 @@ GDT:
    	db 0x0			; Base
 
  	gdt_data:
-   	dw 0xffff      
-   	dw 0x0         
+   	dw 0xffff
+   	dw 0x0
    	db 0x0
    	db 10010010b
    	db 11001111b
@@ -222,27 +216,32 @@ gdt_descriptor :
 
     [BITS 32]
 
-GDT64:
-    ;null;
-    dq 0x0
+GDT64:                           ; Global Descriptor Table (64-bit).
+    .Null: equ $ - GDT64         ; The null descriptor.
+    dw 0xFFFF                    ; Limit (low).
+    dw 0                         ; Base (low).
+    db 0                         ; Base (middle)
+    db 0                         ; Access.
+    db 1                         ; Granularity.
+    db 0                         ; Base (high).
+    .Code: equ $ - GDT64         ; The code descriptor.
+    dw 0                         ; Limit (low).
+    dw 0                         ; Base (low).
+    db 0                         ; Base (middle)
+    db 10011010b                 ; Access (exec/read).
+    db 10101111b                 ; Granularity, 64 bits flag, limit19:16.
+    db 0                         ; Base (high).
+    .Data: equ $ - GDT64         ; The data descriptor.
+    dw 0                         ; Limit (low).
+    dw 0                         ; Base (low).
+    db 0                         ; Base (middle)
+    db 10010010b                 ; Access (read/write).
+    db 00000000b                 ; Granularity.
+    db 0                         ; Base (high).
 
-    gdt64_code:
-    dd 0x0
-    db 0x0
-    db 0b10011000
-    db 0b00100000
-    db 0x0
-
-    gdt64_data:
-    dd 0x0
-    db 0x0
-    db 0b10010000
-    db 0b00000000
-    db 0x0
-
-gdt64_descriptor :
-    dw $ - GDT64 - 1        ; 16-bit size
-    dd GDT64                ; 32-bit start address
+gdt64_descriptor:                ; The GDT-pointer.
+    dw $ - GDT64 - 1             ; Limit.
+    dq GDT64                     ; Base.
 
 ;================;
 ; Boot signature
