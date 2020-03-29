@@ -8,9 +8,9 @@
     pmap_end       equ 0x7F38
     pmap           equ 0x7F3C
 
-    pml4t		   equ 0x1000
-    pdpt		   equ pml4t + 0x1000
-    pdt			   equ pdpt + 0x1000
+    pml4t          equ 0x1000
+    pdpt           equ pml4t + 0x1000
+    pdt            equ pdpt + 0x1000
     pt             equ pdt + 0x1000
 
     DATA_SEG       equ 0x10
@@ -21,67 +21,67 @@
 ;============;
 
     [ORG 0x07C00]  ; Location of our bootloader
-    [BITS 16]  	   ; Real mode only supports 16 bits
+    [BITS 16]      ; Real mode only supports 16 bits
 
-	xor ax, ax     ; Reset segments
-	mov ds, ax     ;
-	mov es, ax     ;
+    xor ax, ax     ; Reset segments
+    mov ds, ax     ;
+    mov es, ax     ;
 
-	mov ax, 0x2401 ; enable A20 bit
-	int 0x15 	   ;
+    mov ax, 0x2401 ; enable A20 bit
+    int 0x15       ;
 
 ;=============;
 ; Get ram map
 ;=============;
 
-	xor	ebx, ebx			; set ebx to 0x00
-	xor	si, si		        ; used here as a counter
-	mov edi, pmap - 24	   	; our destination buffer
+    xor ebx, ebx            ; set ebx to 0x00
+    xor si, si              ; used here as a counter
+    mov edi, pmap - 24      ; our destination buffer
 rammap:
-	add di, 24
-	mov eax, 0xE820		    ; BIOS command
-	mov ecx, 24     	    ; Try to retrieve 24 bytes
-	mov edx, 0x534D4150		; 'SMAP' signature
-	mov [es:di+20], dword 1 ; Ask for valid ACPI 3
-	int 0x15				;
-	inc si					; add one to the length
-	cmp ebx, 0      		; if last entry
-	jne rammap				; continue to next task
-	mov [pmap_len], si
-	add di, 24
-	mov [pmap_end], di
+    add di, 24
+    mov eax, 0xE820         ; BIOS command
+    mov ecx, 24             ; Try to retrieve 24 bytes
+    mov edx, 0x534D4150     ; 'SMAP' signature
+    mov [es:di+20], dword 1 ; Ask for valid ACPI 3
+    int 0x15                ;
+    inc si                  ; add one to the length
+    cmp ebx, 0              ; if last entry
+    jne rammap              ; continue to next task
+    mov [pmap_len], si
+    add di, 24
+    mov [pmap_end], di
 
 ;=============;
 ; Load kernel
 ;=============;
 
-	mov dl, 0x0	   ; Select 1st floppy disk
-	mov dh, 0x0	   ; Head : 0
-	mov ch, 0x0	   ; Cylinder 0
-	mov cl, 0x2	   ; Sector starts at 1, kernel is at 2
+    mov dl, 0x0        ; Select 1st floppy disk
+    mov dh, 0x0        ; Head : 0
+    mov ch, 0x0        ; Cylinder 0
+    mov cl, 0x2        ; Sector starts at 1, kernel is at 2
 
-	xor bx, bx     ; set lefthand part of 0x0:[ram end]
-	mov es, bx     ;
-	mov bx, [pmap_end] ; set righthand partof 0x0:[ram end]
+    xor bx, bx         ; set lefthand part of 0x0:[ram end]
+    mov es, bx         ;
+    mov bx, [pmap_end] ; set righthand partof 0x0:[ram end]
 
 readDrive:
-	mov ah, 0x02   ; Read Sector From Drive
-	mov al, 0x01   ; Read just one sector
-	int 0x13	   ; Interrupt for low-level disk services
-	jc readDrive   ; Try to read again if floppy drive failed
+    mov ah, 0x02       ; Read Sector From Drive
+    mov al, 0x01       ; Read just one sector
+    int 0x13           ; Interrupt for low-level disk services
+    jc readDrive       ; Try to read again if floppy drive failed
 
 ;=============================;
 ; Real mode to Protected mode
 ;=============================;
 
-	cli                   ; Disable interrupts
-	lgdt [gdt_descriptor] ; load GDT
+    cli                   ; Disable interrupts
+    lgdt [gdt_descriptor] ; load GDT
 
-	mov eax,cr0           ; Entering protected mode
-	or eax,1              ;
-	mov cr0,eax		      ;
+    mov eax,cr0           ; Entering protected mode
+    or eax,1              ;
+    mov cr0,eax           ;
 
-	jmp CODE_SEG:init_pm
+    jmp CODE_SEG:init_pm
 
 ;=======================;
 ; Set up Protected mode
@@ -91,14 +91,14 @@ readDrive:
 
 init_pm :
     mov ax, DATA_SEG ; Set up data segments
-	mov ds, ax       ;
-	mov es, ax       ;
-	mov fs, ax       ;
-	mov gs, ax       ;
-	mov ss, ax       ;
+    mov ds, ax       ;
+    mov es, ax       ;
+    mov fs, ax       ;
+    mov gs, ax       ;
+    mov ss, ax       ;
 
-	mov ebp, 0x9000  ; Set up stack
-	mov esp, ebp     ;
+    mov ebp, 0x9000  ; Set up stack
+    mov esp, ebp     ;
 
 ;====================;
 ; Set up Page Tables
@@ -162,19 +162,19 @@ init_pm :
 
 init_lm:
     mov ax, DATA_SEG        ; Set up data segments
-	mov ds, ax              ;
-	mov es, ax              ;
-	mov fs, ax              ;
-	mov gs, ax              ;
-	mov ss, ax              ;
+    mov ds, ax              ;
+    mov es, ax              ;
+    mov fs, ax              ;
+    mov gs, ax              ;
+    mov ss, ax              ;
 
-	mov rbp, 0x90000        ; Set up stack
-	mov rsp, rbp            ;
+    mov rbp, 0x90000        ; Set up stack
+    mov rsp, rbp            ;
 
-	mov esi, [pmap_end]     ; Move loaded kernel
-	mov edi, KERNEL_ADDRESS ; To KERNEL_ADDRESS
-	mov ecx, 0x3000         ;
-	rep movsd               ;
+    mov esi, [pmap_end]     ; Move loaded kernel
+    mov edi, KERNEL_ADDRESS ; To KERNEL_ADDRESS
+    mov ecx, 0x4000         ;
+    rep movsd               ;
 
     call KERNEL_ADDRESS     ; call kernel
 
@@ -185,30 +185,28 @@ init_lm:
     [BITS 16]
 
 GDT:
-	gdt_null :
-   	dd 0x0
-   	dd 0x0
-
- 	gdt_code:
-   	dw 0xffff	    ; Limit
-   	dw 0x0			; Base
-   	db 0x0			; Base
-   	db 10011010b	; 1st flag, Type flag
-   	db 11001111b	; 2nd flag, Limit
-   	db 0x0			; Base
-
- 	gdt_data:
-   	dw 0xffff
-   	dw 0x0
-   	db 0x0
-   	db 10010010b
-   	db 11001111b
-   	db 0x0
- 	gdt_end:
+    gdt_null :
+       dd 0x0
+       dd 0x0
+    gdt_code:
+       dw 0xffff        ; Limit
+       dw 0x0           ; Base
+       db 0x0           ; Base
+       db 10011010b     ; 1st flag, Type flag
+       db 11001111b     ; 2nd flag, Limit
+       db 0x0           ; Base
+    gdt_data:
+       dw 0xffff
+       dw 0x0
+       db 0x0
+       db 10010010b
+       db 11001111b
+       db 0x0
+    gdt_end:
 
 gdt_descriptor :
-   dw gdt_end - GDT - 1     ; 16-bit size
-   dd GDT            		; 32-bit start address
+   dw gdt_end - GDT - 1 ; 16-bit size
+   dd GDT               ; 32-bit start address
 
 ;===========;
 ; 64bit GDT
@@ -216,37 +214,37 @@ gdt_descriptor :
 
     [BITS 32]
 
-GDT64:                           ; Global Descriptor Table (64-bit).
-    .Null: equ $ - GDT64         ; The null descriptor.
-    dw 0xFFFF                    ; Limit (low).
-    dw 0                         ; Base (low).
-    db 0                         ; Base (middle)
-    db 0                         ; Access.
-    db 1                         ; Granularity.
-    db 0                         ; Base (high).
-    .Code: equ $ - GDT64         ; The code descriptor.
-    dw 0                         ; Limit (low).
-    dw 0                         ; Base (low).
-    db 0                         ; Base (middle)
-    db 10011010b                 ; Access (exec/read).
-    db 10101111b                 ; Granularity, 64 bits flag, limit19:16.
-    db 0                         ; Base (high).
-    .Data: equ $ - GDT64         ; The data descriptor.
-    dw 0                         ; Limit (low).
-    dw 0                         ; Base (low).
-    db 0                         ; Base (middle)
-    db 10010010b                 ; Access (read/write).
-    db 00000000b                 ; Granularity.
-    db 0                         ; Base (high).
+GDT64:                   ; Global Descriptor Table (64-bit).
+    .Null: equ $ - GDT64 ; The null descriptor.
+    dw 0xFFFF            ; Limit (low).
+    dw 0                 ; Base (low).
+    db 0                 ; Base (middle)
+    db 0                 ; Access.
+    db 1                 ; Granularity.
+    db 0                 ; Base (high).
+    .Code: equ $ - GDT64 ; The code descriptor.
+    dw 0                 ; Limit (low).
+    dw 0                 ; Base (low).
+    db 0                 ; Base (middle)
+    db 10011010b         ; Access (exec/read).
+    db 10101111b         ; Granularity, 64 bits flag, limit19:16.
+    db 0                 ; Base (high).
+    .Data: equ $ - GDT64 ; The data descriptor.
+    dw 0                 ; Limit (low).
+    dw 0                 ; Base (low).
+    db 0                 ; Base (middle)
+    db 10010010b         ; Access (read/write).
+    db 00000000b         ; Granularity.
+    db 0                 ; Base (high).
 
-gdt64_descriptor:                ; The GDT-pointer.
-    dw $ - GDT64 - 1             ; Limit.
-    dq GDT64                     ; Base.
+gdt64_descriptor:        ; The GDT-pointer.
+    dw $ - GDT64 - 1     ; Limit.
+    dq GDT64             ; Base.
 
 ;================;
 ; Boot signature
 ;================;
 
     [bits 16]
-    times 510 -($-$$) db 0	; Zero-fill the remaining 510 bytes
-    dw 0xAA55 		        ; Boot signature
+    times 510 -($-$$) db 0 ; Zero-fill the remaining 510 bytes
+    dw 0xAA55              ; Boot signature

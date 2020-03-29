@@ -2,7 +2,7 @@ ENTRY(_start)
 OUTPUT_FORMAT(elf64-x86-64)
 
 SECTIONS {
-    . = 1M;
+    . = 0x100000;
 
     .boot :
     {

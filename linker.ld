@@ -2,7 +2,7 @@ ENTRY(_start)
 OUTPUT_FORMAT(binary)
 
 SECTIONS {
-    . = 1M;
+    . = 0x100000;
 
     .boot :
     {

@@ -1,5 +1,5 @@
 # # start a fancy GUI
-# display_library: x, options="gui_debug"
+display_library: x, options="gui_debug"
 
 # Have a sane clock
 clock: sync=realtime
@@ -8,7 +8,7 @@ clock: sync=realtime
 # gdbstub: enabled=1, port=1234, text_base=0, data_base=0, bss_base=0
 
 # configure the disk drive
-floppya: 1_44="build/RustOS.img", status=inserted
+floppya: 1_44="build/RustOS_debug.img", status=inserted
 boot: floppy
 
 
