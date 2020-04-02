@@ -1,4 +1,5 @@
 #![no_std]
+#![no_main]
 use core::panic::PanicInfo;
 use vga_driver::print_hello;
 

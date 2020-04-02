@@ -87,5 +87,5 @@ pub fn print_hello(){
     writer.write_byte(b'H');
     writer.write_byte(b'e');
     writer.write_byte(b'l');
-    writer.write_string("ello from Rust!");
+    writer.write_string("lo from Rust!");
 }

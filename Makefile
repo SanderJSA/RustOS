@@ -1,12 +1,13 @@
 NAME = RustOS
 
+LD := ld.lld
 BUILD_DIR := build
 
 IMAGE := $(BUILD_DIR)/$(NAME).img
 IMAGE_DEBUG := $(BUILD_DIR)/$(NAME)_debug.img
 
-KERNEL = target/x86_64-RustOS/release/librust_kernel.a
-KERNEL_DEBUG = target/x86_64-RustOS/debug/librust_kernel.a
+KERNEL = target/x86_64-RustOS/release/rust_os
+KERNEL_DEBUG = target/x86_64-RustOS/debug/rust_os
 
 SRC = $(wildcard src/*.rs)
 
@@ -27,11 +28,11 @@ $(IMAGE): $(BUILD_DIR)/boot_loader.bin $(BUILD_DIR)/kernel.bin
 
 # Set entry point first then link with kernel
 $(BUILD_DIR)/kernel.bin: $(BUILD_DIR)/kernel_start.o $(KERNEL)
-	ld -o $@ -T linker.ld $^
+	ld --oformat binary -o $@ -T linker.ld $(BUILD_DIR)/kernel_start.o $(KERNEL)
 
 # Compile rust kernel
 $(KERNEL): $(SRC)
-	cargo xbuild --release
+	cargo xbuild --bin rust_os --release
 
 
 #
@@ -48,17 +49,13 @@ $(IMAGE_DEBUG): $(BUILD_DIR)/boot_loader.bin $(BUILD_DIR)/kernel_debug.bin
 	dd if=$< of=$@
 	dd if=$(BUILD_DIR)/kernel_debug.bin of=$@ conv=notrunc bs=512 seek=1
 
-# link kernel and kernel start to binary
-$(BUILD_DIR)/kernel_debug.bin: $(BUILD_DIR)/kernel_start.o $(KERNEL_DEBUG)
-	ld -o $@ -T linker.ld $^
-
-# link kernel and kernel start in elf format for gdb
-$(BUILD_DIR)/kernel.elf: $(BUILD_DIR)/kernel_start.o $(KERNEL_DEBUG)
-	ld -o $@ -T linker_debug.ld $^
+# link kernel and kernel start to binary and create symbol file for gdb
+$(BUILD_DIR)/kernel_debug.bin $(BUILD_DIR)/kernel.elf: $(BUILD_DIR)/kernel_start.o $(KERNEL_DEBUG)
+	${LD} -init=k_start -o $@ -T linker.ld $(BUILD_DIR)/kernel_start.o $(KERNEL_DEBUG)
 
 # Compile rust kernel in debug mode
 $(KERNEL_DEBUG): $(SRC)
-	cargo xbuild
+	cargo xbuild --bin rust_os
 
 #
 # Intermediate

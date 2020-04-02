@@ -4,9 +4,9 @@
 
     KERNEL_ADDRESS equ 0x100000
 
-    pmap_len       equ 0x7F04
-    pmap_end       equ 0x7F38
-    pmap           equ 0x7F3C
+    pmap_len       equ 0x8000
+    pmap_end       equ 0x8004
+    pmap           equ 0x8008
 
     pml4t          equ 0x1000
     pdpt           equ pml4t + 0x1000
@@ -24,11 +24,17 @@
     [BITS 16]      ; Real mode only supports 16 bits
 
     xor ax, ax     ; Reset segments
-    mov ds, ax     ;
     mov es, ax     ;
+    mov ds, ax     ;
 
-    mov ax, 0x2401 ; enable A20 bit
+    mov ax,0x2402  ; Get A20 status
     int 0x15       ;
+    cmp al, 1      ; test if A20 is enabled
+    jz A20Enabled  ; If enabled skip
+
+    mov ax, 0x2401 ; Else enable A20 bit
+    int 0x15       ;
+A20Enabled:
 
 ;=============;
 ; Get ram map
@@ -66,7 +72,7 @@ rammap:
 
 readDrive:
     mov ah, 0x02       ; Read Sector From Drive
-    mov al, 0x01       ; Read just one sector
+    mov al, 0x05       ; Read just one sector
     int 0x13           ; Interrupt for low-level disk services
     jc readDrive       ; Try to read again if floppy drive failed
 
@@ -173,7 +179,7 @@ init_lm:
 
     mov esi, [pmap_end]     ; Move loaded kernel
     mov edi, KERNEL_ADDRESS ; To KERNEL_ADDRESS
-    mov ecx, 0x4000         ;
+    mov ecx, 0x3000         ;
     rep movsd               ;
 
     call KERNEL_ADDRESS     ; call kernel

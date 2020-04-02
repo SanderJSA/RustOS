@@ -1,5 +1,4 @@
 ENTRY(_start)
-OUTPUT_FORMAT(binary)
 
 SECTIONS {
     . = 0x100000;
@@ -8,20 +7,25 @@ SECTIONS {
     {
         *(.kernel_start)
     }
-    .text :
-    {
-        *(.text .text.*)
-    }
+
     .rodata :
     {
-        *(.rodata .rodata.*)
+        *(rodata)
+    }
+    .text :
+    {
+        *(text)
     }
     .data :
     {
-        *(.data .data.*)
+        *(data)
     }
-    .bss :
+    .got :
     {
-        *(.bss)
+        *(got)
+    }
+    .comment :
+    {
+        *(comment)
     }
 }
