@@ -1,6 +1,6 @@
 NAME = RustOS
 
-LD := ld.lld
+LD := ld
 BUILD_DIR := build
 
 IMAGE := $(BUILD_DIR)/$(NAME).img

@@ -1,4 +1,5 @@
-ENTRY(_start)
+ENTRY(k_start)
+STARTUP(build/kernel_start.o)
 
 SECTIONS {
     . = 0x100000;
@@ -10,22 +11,22 @@ SECTIONS {
 
     .rodata :
     {
-        *(rodata)
+        *(.rodata)
     }
     .text :
     {
-        *(text)
+        *(.text)
     }
     .data :
     {
-        *(data)
+        *(.data)
     }
     .got :
     {
-        *(got)
+        *(.got)
     }
     .comment :
     {
-        *(comment)
+        *(.comment)
     }
 }
