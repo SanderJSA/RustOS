@@ -72,7 +72,7 @@ rammap:
 
 readDrive:
     mov ah, 0x02       ; Read Sector From Drive
-    mov al, 0x48       ; Read 10 sectors
+    mov al, 0x3F       ; Read 10 sectors
     int 0x13           ; Interrupt for low-level disk services
     jc readDrive       ; Try to read again if floppy drive failed
 
