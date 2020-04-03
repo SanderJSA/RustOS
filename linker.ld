@@ -4,7 +4,7 @@ STARTUP(build/kernel_start.o)
 SECTIONS {
     . = 0x100000;
 
-    .boot :
+    .kernel_start :
     {
         *(.kernel_start)
     }
