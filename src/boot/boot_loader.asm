@@ -72,7 +72,7 @@ rammap:
 
 readDrive:
     mov ah, 0x02       ; Read Sector From Drive
-    mov al, 0x05       ; Read just one sector
+    mov al, 0x3F       ; Read 10 sectors
     int 0x13           ; Interrupt for low-level disk services
     jc readDrive       ; Try to read again if floppy drive failed
 
@@ -179,7 +179,7 @@ init_lm:
 
     mov esi, [pmap_end]     ; Move loaded kernel
     mov edi, KERNEL_ADDRESS ; To KERNEL_ADDRESS
-    mov ecx, 0x3000         ;
+    mov ecx, 0x6000         ;
     rep movsd               ;
 
     call KERNEL_ADDRESS     ; call kernel

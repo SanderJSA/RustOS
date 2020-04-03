@@ -1,4 +1,5 @@
-ENTRY(_start)
+ENTRY(k_start)
+STARTUP(build/kernel_start.o)
 
 SECTIONS {
     . = 0x100000;
