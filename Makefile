@@ -49,9 +49,13 @@ $(IMAGE_DEBUG): $(BUILD_DIR)/boot_loader.bin $(BUILD_DIR)/kernel_debug.bin
 	dd if=$< of=$@
 	dd if=$(BUILD_DIR)/kernel_debug.bin of=$@ conv=notrunc bs=512 seek=1
 
-# link kernel and kernel start to binary and create symbol file for gdb
-$(BUILD_DIR)/kernel_debug.bin $(BUILD_DIR)/kernel.elf: $(BUILD_DIR)/kernel_start.o $(KERNEL_DEBUG)
-	${LD} -init=k_start -o $@ -T linker.ld $(BUILD_DIR)/kernel_start.o $(KERNEL_DEBUG)
+# link kernel and kernel start to binary
+$(BUILD_DIR)/kernel_debug.bin: $(BUILD_DIR)/kernel_start.o $(KERNEL_DEBUG)
+	${LD} --oformat binary -o $@ -T linker.ld $(BUILD_DIR)/kernel_start.o $(KERNEL_DEBUG)
+
+# link kernel and kernel start and create symbol file for gdb
+$(BUILD_DIR)/kernel.elf: $(BUILD_DIR)/kernel_start.o $(KERNEL_DEBUG)
+	${LD} --oformat elf64-x86-64 -o $@ -T linker.ld $(BUILD_DIR)/kernel_start.o $(KERNEL_DEBUG)
 
 # Compile rust kernel in debug mode
 $(KERNEL_DEBUG): $(SRC)
