@@ -3,29 +3,29 @@ ENTRY(_start)
 SECTIONS {
     . = 0x100000;
 
-    .boot :
+    .kernel_start :
     {
         *(.kernel_start)
     }
 
     .rodata :
     {
-        *(rodata)
+        *(.rodata)
     }
     .text :
     {
-        *(text)
+        *(.text)
     }
     .data :
     {
-        *(data)
+        *(.data)
     }
     .got :
     {
-        *(got)
+        *(.got)
     }
     .comment :
     {
-        *(comment)
+        *(.comment)
     }
 }
