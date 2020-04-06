@@ -1,6 +1,7 @@
 # Build
 target/*
 build/*
+bx_enh_dbg.ini
 
 # Rust files
 Cargo.lock
