@@ -13,6 +13,7 @@ fn panic(_info: &PanicInfo) -> ! {
 
 // Entry point of our kernel
 #[no_mangle]
+#[link_section = ".kernel_start"]
 pub extern "C" fn _start() -> ! {
     print_hello();
     loop {}
