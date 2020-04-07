@@ -1,3 +1,10 @@
+[dependencies]
+spin = "0.5.2"
+
+[dependencies.lazy_static]
+version = "1.0.0"
+features = ["spin_no_std"]
+
 [package]
 name = "rust_os"
 version = "0.1.0"

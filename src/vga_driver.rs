@@ -1,3 +1,10 @@
+extern crate lazy_static;
+extern crate spin;
+
+lazy_static::lazy_static! {
+    pub static ref MUT_STATIC: spin::Mutex<u8> = spin::Mutex::new(128);
+}
+
 const BUFFER_HEIGHT: usize = 25;
 const BUFFER_WIDTH: usize = 80;
 
