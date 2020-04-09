@@ -9,7 +9,7 @@ IMAGE_DEBUG := $(BUILD_DIR)/$(NAME)_debug.img
 KERNEL = target/x86_64-RustOS/release/rust_os
 KERNEL_DEBUG = target/x86_64-RustOS/debug/rust_os
 
-SRC = $(wildcard src/*.rs)
+SRC = $(shell find src -name *.rs)
 
 .PHONY: run debug clean
 
