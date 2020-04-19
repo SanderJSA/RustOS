@@ -1,6 +1,8 @@
 use core::fmt;
 use core::fmt::Write;
-use crate::utils;
+
+mod utils;
+use utils::*;
 
 const BUFFER_HEIGHT: usize = 25;
 const BUFFER_WIDTH: usize = 80;
@@ -107,16 +109,16 @@ impl fmt::Write for Writer {
 
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
-    static mut WRITER : utils::Lazy<Writer> = utils::Lazy::new();
+    static mut WRITER : lazy_static::Lazy<Writer> = lazy_static::Lazy::new();
 
-    utils::obtain_lock();
+    spinlock::obtain_lock();
     unsafe { WRITER.get(Writer::new).write_fmt(args).unwrap(); }
-    utils::release_lock();
+    spinlock::release_lock();
 }
 
 #[macro_export]
 macro_rules! print {
-    ($($arg:tt)*) => ($crate::vga_driver::_print(format_args!($($arg)*)));
+    ($($arg:tt)*) => ($crate::driver::vga_driver::_print(format_args!($($arg)*)));
 }
 
 #[macro_export]

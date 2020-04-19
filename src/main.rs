@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 use core::panic::PanicInfo;
-mod vga_driver;
+mod driver;
 mod utils;
 
 // Define panic handler
