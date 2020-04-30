@@ -1,2 +1,5 @@
 [build]
 target = "x86_64-RustOS.json"
+
+[target.x86_64-RustOS]
+runner = ["./test_runner.sh"]

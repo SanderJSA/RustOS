@@ -1,7 +1,6 @@
 use core::fmt;
 use core::fmt::Write;
 
-mod utils;
 use utils::*;
 
 const BUFFER_HEIGHT: usize = 25;

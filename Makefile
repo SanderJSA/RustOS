@@ -5,9 +5,11 @@ BUILD_DIR := build
 
 IMAGE := $(BUILD_DIR)/$(NAME).img
 IMAGE_DEBUG := $(BUILD_DIR)/$(NAME)_debug.img
+IMAGE_CHECK := $(BUILD_DIR)/$(NAME)_check.img
 
 KERNEL = target/x86_64-RustOS/release/rust_os
 KERNEL_DEBUG = target/x86_64-RustOS/debug/rust_os
+KERNEL_CHECK = target/x86_64-RustOS/debug/rust_os
 
 SRC = $(shell find src -name *.rs)
 
@@ -55,6 +57,22 @@ $(BUILD_DIR)/kernel_debug.bin: $(KERNEL_DEBUG)
 # Compile rust kernel in debug mode
 $(KERNEL_DEBUG): $(SRC)
 	cargo xbuild --bin rust_os
+
+#
+# Check
+#
+
+test: $(IMAGE_CHECK)
+	qemu-system-x86_64 -fda $(IMAGE_CHECK) -boot a
+
+# Create image with bootloader on first sector and kernel on the first sector onwards
+$(IMAGE_CHECK): $(BUILD_DIR)/boot_loader.bin $(BUILD_DIR)/kernel_check.bin
+	dd if=$< of=$@
+	dd if=$(BUILD_DIR)/kernel_check.bin of=$@ conv=notrunc bs=512 seek=1
+
+# Convert kernel to binary
+$(BUILD_DIR)/kernel_check.bin: $(KERNEL_TEST)
+	llvm-objcopy -O binary --binary-architecture=i386:x86-64 $< $@
 
 #
 # Intermediate
