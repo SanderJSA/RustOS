@@ -11,12 +11,22 @@ impl <T> Lazy<T> {
         Lazy { value: MaybeUninit::uninit(), created: spinlock::Once::new() }
     }
 
-    pub fn get<F>(&'static mut self, builder: F) -> &'static mut T
+    pub fn init<F>(&mut self, builder: F)
         where F: Fn() -> T
     {
         if self.created.initialize() {
             self.value = MaybeUninit::new(builder());
         }
-        unsafe { &mut *self.value.as_mut_ptr() }
+    }
+
+    pub unsafe fn get_already_init(&'static mut self) -> &'static mut T {
+        &mut *self.value.as_mut_ptr()
+    }
+
+    pub fn get<F>(&'static mut self, builder: F) -> &'static mut T
+        where F: Fn() -> T
+    {
+        self.init(builder);
+        unsafe { return self.get_already_init(); }
     }
 }

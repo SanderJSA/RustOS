@@ -63,7 +63,7 @@ $(KERNEL_DEBUG): $(SRC)
 #
 
 test: $(IMAGE_CHECK)
-	qemu-system-x86_64 -fda $(IMAGE_CHECK) -boot a
+	qemu-system-x86_64 -drive file=$(IMAGE_CHECK),format=raw,index=0,if=floppy -device isa-debug-exit,iobase=0xf4,iosize=0x04
 
 # Create image with bootloader on first sector and kernel on the first sector onwards
 $(IMAGE_CHECK): $(BUILD_DIR)/boot_loader.bin $(BUILD_DIR)/kernel_check.bin
