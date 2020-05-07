@@ -1,30 +1,62 @@
-use super::cpuio::ChainedPics;
-use crate::utils::lazy_static::*;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
-use crate::println;
+use super::cpuio::ChainedPics;
+use crate::{print, println};
+use driver::gdt;
+use utils::lazy_static::Lazy;
 
 pub const PIC_1_OFFSET: u8 = 32;
 pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
 
-//pub static PICS: Lazy<ChainedPics, fnOnce() -> ChainedPics> =
-//    Lazy::new(|| ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET));
+pub static mut PICS: Lazy<ChainedPics> = Lazy::new();
+pub static mut IDT: InterruptDescriptorTable = InterruptDescriptorTable::new();
 
+pub fn init_pics() {
+    unsafe { PICS.get(|| ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET))
+        .initialize(); }
+}
 
-pub fn init_idt() {
-    pub static mut IDT: Lazy<InterruptDescriptorTable> = Lazy::new();
+#[derive(Debug, Clone, Copy)]
+#[repr(u8)]
+pub enum PICIndex {
+    Timer = PIC_1_OFFSET,
+    Keyboard,
+}
 
-    unsafe {
-        IDT.get(InterruptDescriptorTable::new).breakpoint.set_handler_fn(breakpoint_handler);
-        IDT.get_already_init().double_fault.set_handler_fn(double_fault_handler);
-        IDT.get_already_init().load();
+impl PICIndex {
+    fn as_u8(self) -> u8 {
+        self as u8
+    }
+    fn as_usize(self) -> usize {
+        usize::from(self.as_u8())
     }
 }
 
-extern "x86-interrupt" fn double_fault_handler(
-stack_frame: &mut InterruptStackFrame, _error_code: u64) -> ! {
-    panic!("EXCEPTION: DOUBLE FAULT\n{:#?}", stack_frame);
+pub fn init_idt() {
+    unsafe {
+        IDT.breakpoint.set_handler_fn(breakpoint_handler);
+        IDT.double_fault.set_handler_fn(double_fault_handler)
+            .set_stack_index(gdt::DOUBLE_FAULT_IST_INDEX);
+        IDT[PICIndex::Timer.as_usize()].set_handler_fn(timer_interrupt_handler);
+        IDT[PICIndex::Keyboard.as_usize()].set_handler_fn(keyboard_interrupt_handler);
+        IDT.load();
+    }
+}
+
+extern "x86-interrupt" fn
+    double_fault_handler(stack_frame: &mut InterruptStackFrame, _error_code: u64) -> ! {
+    panic!("EXCEPTION: DOUBLE FAULT ERR:{}\n{:#?}", _error_code, stack_frame);
 }
 
 extern "x86-interrupt" fn breakpoint_handler(stack_frame: &mut InterruptStackFrame) {
     println!("EXCEPTION: BREAKPOINT\n{:#?}", stack_frame);
+}
+
+extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: &mut InterruptStackFrame) {
+    print!("test.");
+    unsafe { PICS.get_already_init().notify_end_of_interrupt(PICIndex::Timer.as_u8()); }
+}
+
+extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: &mut InterruptStackFrame) {
+    print!("keypress");
+    unsafe { PICS.get_already_init().notify_end_of_interrupt(PICIndex::Keyboard.as_u8()); }
 }

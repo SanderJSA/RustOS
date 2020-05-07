@@ -42,7 +42,7 @@ $(KERNEL): $(SRC)
 
 # Launch qemu and attach gdb to it
 debug: $(IMAGE_DEBUG)
-	qemu-system-x86_64 -S -s -fda $(IMAGE_DEBUG) &
+	qemu-system-x86_64 -S -s -fda $(IMAGE_DEBUG) -boot a &
 	gdb -ex "target remote localhost:1234" -ex "file $(KERNEL_DEBUG)"
 
 # Create image with bootloader on first sector and kernel on the first sector onwards

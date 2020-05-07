@@ -4,4 +4,4 @@ version = "0.1.0"
 authors = ["Sander JSA <sanderjsa@hotmail.com>"]
 
 [dependencies]
-x86_64 = "0.10.1"
+x86_64 = "0.10.2"

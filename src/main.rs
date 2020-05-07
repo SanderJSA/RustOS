@@ -1,8 +1,8 @@
 #![no_std]
 #![no_main]
-#![feature(asm)]
-#![feature(custom_test_frameworks)]
+#![feature(llvm_asm)]
 #![feature(abi_x86_interrupt)]
+#![feature(custom_test_frameworks)]
 #![test_runner(test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
@@ -31,12 +31,14 @@ pub extern "C" fn _start() -> ! {
     #[cfg(test)]
     test_main();
 
-    loop {}
+    loop {};
 }
 
 fn init() {
-    interrupt::init_idt();
     gdt::init();
+    interrupt::init_idt();
+    interrupt::init_pics();
+    x86_64::instructions::interrupts::enable();
 }
 
 fn welcome_message() {
@@ -49,7 +51,6 @@ fn welcome_message() {
            {}\n", 1 as char);
     println!("Howdy, welcome to RustOS");
 }
-
 
 #[cfg(test)]
 fn test_runner(tests: &[&dyn Fn()]) {
@@ -73,5 +74,3 @@ fn trivial_fail() {
     print!("Test trivial_fail: ");
     assert!(false);
 }
-
-
