@@ -52,7 +52,6 @@ extern "x86-interrupt" fn breakpoint_handler(stack_frame: &mut InterruptStackFra
 }
 
 extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: &mut InterruptStackFrame) {
-    print!("test.");
     unsafe { PICS.get_already_init().notify_end_of_interrupt(PICIndex::Timer.as_u8()); }
 }
 

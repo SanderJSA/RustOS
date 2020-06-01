@@ -167,7 +167,7 @@ init_pm :
     [bits 64]
 
 init_lm:
-    mov ax, DATA_SEG        ; Set up data segments
+    mov ax, 0               ; Set up data segments
     mov ds, ax              ;
     mov es, ax              ;
     mov fs, ax              ;
@@ -222,11 +222,11 @@ gdt_descriptor :
 
 GDT64:                   ; Global Descriptor Table (64-bit).
     .Null: equ $ - GDT64 ; The null descriptor.
-    dw 0xFFFF            ; Limit (low).
+    dw 0                 ; Limit (low).
     dw 0                 ; Base (low).
     db 0                 ; Base (middle)
     db 0                 ; Access.
-    db 1                 ; Granularity.
+    db 0                 ; Granularity.
     db 0                 ; Base (high).
     .Code: equ $ - GDT64 ; The code descriptor.
     dw 0                 ; Limit (low).
