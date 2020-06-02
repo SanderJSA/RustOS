@@ -3,6 +3,7 @@ pub mod port;
 pub mod interrupt;
 pub mod cpuio;
 pub mod gdt;
+pub mod PS2_keyboard;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]

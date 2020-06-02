@@ -1,9 +1,10 @@
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 use super::cpuio::ChainedPics;
-use crate::println;
+use crate::{print, println};
 use driver::gdt;
 use utils::lazy_static::Lazy;
 use driver::port::inb;
+use driver::PS2_keyboard;
 
 pub const PIC_1_OFFSET: u8 = 32;
 pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
@@ -58,6 +59,9 @@ extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: &mut InterruptSt
 
 extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: &mut InterruptStackFrame) {
     let scan_code: u8 = inb(0x60);
-    println!("keypress: {}", scan_code);
+    let symbol = PS2_keyboard::parse_scancode(scan_code);
+    if let Some(symbol) = symbol {
+        print!("{}", symbol);
+    }
     unsafe { PICS.get_already_init().notify_end_of_interrupt(PICIndex::Keyboard.as_u8()); }
 }
