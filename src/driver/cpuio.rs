@@ -6,8 +6,8 @@ const MODE_8086: u8 = 0x01;
 
 struct Pic {
     offset: u8,
-    command_port: u8,
-    data_port: u8,
+    command_port: u16,
+    data_port: u16,
 }
 
 impl Pic {
