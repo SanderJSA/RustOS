@@ -1,6 +1,6 @@
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 use super::cpuio::ChainedPics;
-use crate::{print, println};
+use crate::println;
 use driver::gdt;
 use utils::lazy_static::Lazy;
 use driver::port::inb;

@@ -24,8 +24,4 @@ SECTIONS {
     {
         *(.got)
     }
-    .comment :
-    {
-        *(.comment)
-    }
 }
