@@ -6,20 +6,21 @@
 #![test_runner(test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
-extern crate x86_64;
+extern crate x86_64 as x86_64_crate;
 
 pub mod driver;
 mod utils;
+mod x86_64;
 
 #[cfg(test)]
 use core::panic::PanicInfo;
-use driver::*;
+use x86_64::*;
 
 pub fn init() {
     gdt::init();
     interrupt::init_idt();
     interrupt::init_pics();
-    x86_64::instructions::interrupts::enable();
+    x86_64_crate::instructions::interrupts::enable();
 }
 
 pub fn welcome_message() {

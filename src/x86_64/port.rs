@@ -13,3 +13,16 @@ pub fn inb(port: u16) -> u8 {
         result
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u32)]
+#[allow(dead_code)]
+pub enum ExitCode {
+    Success = 0x10,
+    Failure = 0x11,
+}
+
+#[allow(dead_code)]
+pub fn exit(exit_code: ExitCode) {
+    outb(0xf4, exit_code as u8);
+}

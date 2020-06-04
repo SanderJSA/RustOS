@@ -1,4 +1,4 @@
-use super::port::*;
+use x86_64::port::*;
 
 const PIC_INIT: u8 = 0x11;
 const END_OF_INTERRUPT: u8 = 0x20;
