@@ -9,29 +9,20 @@
 extern crate x86_64 as x86_64_crate;
 
 pub mod driver;
+mod tty;
 mod utils;
 mod x86_64;
 
 #[cfg(test)]
 use core::panic::PanicInfo;
 use x86_64::*;
+pub use tty::run_tty;
 
 pub fn init() {
     gdt::init();
     interrupt::init_idt();
     interrupt::init_pics();
     x86_64_crate::instructions::interrupts::enable();
-}
-
-pub fn welcome_message() {
-    println!("     .~~~~`\\~~\\
-     ;       ~~ \\
-     |           ;
- ,--------,______|---.
-/          \\-----`    \\
-`.__________`-_______-'
-           {}\n", 1 as char);
-    println!("Howdy, welcome to RustOS");
 }
 
 //
