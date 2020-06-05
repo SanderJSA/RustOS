@@ -8,8 +8,8 @@ clock: sync=realtime
 # gdbstub: enabled=1, port=1234, text_base=0, data_base=0, bss_base=0
 
 # configure the disk drive
-floppya: 1_44="build/RustOS_debug.img", status=inserted
-boot: floppy
+ata0-master: type=disk, path="build/RustOS_debug.img", mode=flat, cylinders=4, heads=4, spt=8, translation=none
+boot: disk
 
 
 # write serial logs to stdout

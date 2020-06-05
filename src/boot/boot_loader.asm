@@ -2,11 +2,8 @@
 ; Constants
 ;===========;
 
+    KERNEL_BUFFER  equ 0x7E00
     KERNEL_ADDRESS equ 0x100000
-
-    pmap_len       equ 0x8000
-    pmap_end       equ 0x8004
-    pmap           equ 0x8008
 
     pml4t          equ 0x1000
     pdpt           equ pml4t + 0x1000
@@ -37,44 +34,24 @@
 A20Enabled:
 
 ;=============;
-; Get ram map
-;=============;
-
-    xor ebx, ebx            ; set ebx to 0x00
-    xor si, si              ; used here as a counter
-    mov edi, pmap - 24      ; our destination buffer
-rammap:
-    add di, 24
-    mov eax, 0xE820         ; BIOS command
-    mov ecx, 24             ; Try to retrieve 24 bytes
-    mov edx, 0x534D4150     ; 'SMAP' signature
-    mov [es:di+20], dword 1 ; Ask for valid ACPI 3
-    int 0x15                ;
-    inc si                  ; add one to the length
-    cmp ebx, 0              ; if last entry
-    jne rammap              ; continue to next task
-    mov [pmap_len], si
-    add di, 24
-    mov [pmap_end], di
-
-;=============;
 ; Load kernel
 ;=============;
 
-    mov dl, 0x0        ; Select 1st floppy disk
-    mov dh, 0x0        ; Head : 0
-    mov ch, 0x0        ; Cylinder 0
-    mov cl, 0x2        ; Sector starts at 1, kernel is at 2
+                          ; dl starts of set to the correct device
+    mov dh, 0x0           ; Head : 0
+    mov ch, 0x0           ; Cylinder 0
+    mov cl, 0x2           ; Sector starts at 1, kernel is at 2
 
-    xor bx, bx         ; set lefthand part of 0x0:[ram end]
-    mov es, bx         ;
-    mov bx, [pmap_end] ; set righthand partof 0x0:[ram end]
+    xor bx, bx            ; set lefthand part of 0x0:KERNEL_BUFFER
+    mov es, bx            ;
+    mov bx, KERNEL_BUFFER ; set righthand partof 0x0:KERNEL_BUFFER
 
 readDrive:
-    mov ah, 0x02       ; Read Sector From Drive
-    mov al, 0x3F       ; Read 10 sectors
-    int 0x13           ; Interrupt for low-level disk services
-    jc readDrive       ; Try to read again if floppy drive failed
+    mov ah, 0x02          ; Read Sector From Drive
+    mov al, 0x7F          ; Read 127 sectors
+
+    int 0x13              ; Interrupt for low-level disk services
+    jc readDrive          ; Try to read again if drive failed
 
 ;=============================;
 ; Real mode to Protected mode
@@ -177,9 +154,9 @@ init_lm:
     mov rbp, 0x90000        ; Set up stack
     mov rsp, rbp            ;
 
-    mov esi, [pmap_end]     ; Move loaded kernel
+    mov esi, KERNEL_BUFFER  ; Move loaded kernel
     mov edi, KERNEL_ADDRESS ; To KERNEL_ADDRESS
-    mov ecx, 0x6000         ;
+    mov ecx, 512 * 127      ; Copy 512 * 127 bytes
     rep movsd               ;
 
     call KERNEL_ADDRESS     ; call kernel

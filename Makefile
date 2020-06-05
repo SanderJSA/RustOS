@@ -21,11 +21,12 @@ SRC = $(shell find src -name *.rs)
 #
 
 run: $(IMAGE)
-	qemu-system-x86_64 -fda $(IMAGE) -boot a
+	qemu-system-x86_64 -drive file=$(IMAGE),format=raw -boot c
 
 # Create image with bootloader on first sector and kernel on the first sector onwards
 $(IMAGE): $(BUILD_DIR)/boot_loader.bin $(BUILD_DIR)/kernel.bin
-	dd if=$< of=$@
+	dd if=/dev/zero of=$@ bs=512 count=128
+	dd if=$< of=$@ conv=notrunc
 	dd if=$(BUILD_DIR)/kernel.bin of=$@ conv=notrunc bs=512 seek=1
 
 # Convert kernel to binary
@@ -42,12 +43,13 @@ $(KERNEL): $(SRC)
 
 # Launch qemu and attach gdb to it
 debug: $(IMAGE_DEBUG)
-	qemu-system-x86_64 -S -s -fda $(IMAGE_DEBUG) -boot a &
+	qemu-system-x86_64 -S -s -drive file=$(IMAGE_DEBUG),format=raw -boot c &
 	gdb -ex "target remote localhost:1234" -ex "file $(KERNEL_DEBUG)"
 
 # Create image with bootloader on first sector and kernel on the first sector onwards
 $(IMAGE_DEBUG): $(BUILD_DIR)/boot_loader.bin $(BUILD_DIR)/kernel_debug.bin
-	dd if=$< of=$@
+	dd if=/dev/zero of=$@ bs=512 count=128
+	dd if=$< of=$@ conv=notrunc
 	dd if=$(BUILD_DIR)/kernel_debug.bin of=$@ conv=notrunc bs=512 seek=1
 
 # link kernel and kernel start to binary
@@ -63,11 +65,12 @@ $(KERNEL_DEBUG): $(SRC)
 #
 
 test: $(IMAGE_CHECK)
-	qemu-system-x86_64 -drive file=$(IMAGE_CHECK),format=raw,index=0,if=floppy -device isa-debug-exit,iobase=0xf4,iosize=0x04
+	qemu-system-x86_64 -drive file=$(IMAGE_CHECK),format=raw -device isa-debug-exit,iobase=0xf4,iosize=0x04 -boot c
 
 # Create image with bootloader on first sector and kernel on the first sector onwards
 $(IMAGE_CHECK): $(BUILD_DIR)/boot_loader.bin $(BUILD_DIR)/kernel_check.bin
-	dd if=$< of=$@
+	dd if=/dev/zero of=$@ bs=512 count=128
+	dd if=$< of=$@ conv=notrunc
 	dd if=$(BUILD_DIR)/kernel_check.bin of=$@ conv=notrunc bs=512 seek=1
 
 # Convert kernel to binary
