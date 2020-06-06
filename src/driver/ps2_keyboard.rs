@@ -1,4 +1,83 @@
-pub fn parse_scancode(code: u8) -> Option<char> {
+use core::ptr;
+use core::str;
+
+const BUFFER_SIZE: usize = 2048;
+
+struct Buffer {
+    data: [u8; BUFFER_SIZE],
+    start: usize,
+    end: usize,
+}
+
+impl Buffer {
+    const fn new() -> Buffer {
+        Buffer {
+            data: [' ' as u8; BUFFER_SIZE],
+            start: 0,
+            end: 0,
+        }
+    }
+
+    fn add_char(&mut self, value: char) {
+        if self.end == BUFFER_SIZE {
+            panic!("Not enough space in buffer");
+        }
+
+        self.data[self.end] = value as u8;
+        self.end += 1;
+    }
+
+    fn remove_char(&mut self) {
+        if self.end != self.start {
+            self.end -= 1;
+        }
+    }
+
+    fn wait_for_more(&mut self) -> bool {
+        unsafe {
+            ptr::read_volatile(&self.start) == ptr::read_volatile(&self.end)
+        }
+    }
+
+    fn get_line(&mut self) -> &str {
+        let init = self.start;
+
+        loop {
+
+            // Spin while waiting for buffer to get more values
+            while self.wait_for_more() {}
+
+            if self.data[self.start] == '\n' as u8 {
+                self.start += 1; // To include new line
+                return str::from_utf8(&self.data[init .. self.start]).unwrap();
+            }
+            self.start += 1;
+        }
+    }
+}
+
+static mut STDIN_BUFFER: Buffer = Buffer::new();
+
+pub fn readline() -> &'static str{
+    unsafe {
+        STDIN_BUFFER.get_line()
+    }
+}
+
+pub fn update_stdin(code: u8) -> Option<char> {
+    if code == 0x0E {
+        unsafe { STDIN_BUFFER.remove_char() };
+    }
+
+    let value = parse_normal_char(code);
+    if let Some(value) = value {
+        unsafe { STDIN_BUFFER.add_char(value) };
+    }
+
+    value
+}
+
+fn parse_normal_char(code: u8) -> Option<char> {
     match code {
         0x02 => Some('1'),
         0x03 => Some('2'),

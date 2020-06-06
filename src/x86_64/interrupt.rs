@@ -29,7 +29,7 @@ impl PICIndex {
         self as u8
     }
     fn as_usize(self) -> usize {
-        usize::from(self.as_u8())
+        (self.as_u8()) as usize
     }
 }
 
@@ -59,7 +59,7 @@ extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: &mut InterruptSt
 
 extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: &mut InterruptStackFrame) {
     let scan_code: u8 = port::inb(0x60);
-    let symbol = ps2_keyboard::parse_scancode(scan_code);
+    let symbol = ps2_keyboard::update_stdin(scan_code);
     if let Some(symbol) = symbol {
         print!("{}", symbol);
     }

@@ -1,4 +1,5 @@
-use crate::println;
+use crate::{println, print};
+use driver::ps2_keyboard::readline;
 
 pub fn run_tty() {
     // Set up shell
@@ -12,5 +13,13 @@ pub fn run_tty() {
     println!("Howdy, welcome to RustOS");
 
     // Run shell
-    loop   {}
+    loop {
+        print!("> ");
+        let input = readline();
+
+        match input {
+            "help\n" => println!("RustOS tty v1.0\nNo other commands are supported for now."),
+            _ => println!("Unknown command: {}", input),
+        }
+    }
 }
