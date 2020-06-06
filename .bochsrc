@@ -8,7 +8,7 @@ clock: sync=realtime
 # gdbstub: enabled=1, port=1234, text_base=0, data_base=0, bss_base=0
 
 # configure the disk drive
-ata0-master: type=disk, path="build/RustOS_debug.img", mode=flat, cylinders=4, heads=4, spt=8, translation=none
+ata0-master: type=disk, path="build/RustOS.img", mode=flat, cylinders=1, heads=4, spt=63, translation=auto
 boot: disk
 
 

@@ -4,6 +4,7 @@
 
     KERNEL_BUFFER  equ 0x7E00
     KERNEL_ADDRESS equ 0x100000
+    KERNEL_SIZE    equ 128000
 
     pml4t          equ 0x1000
     pdpt           equ pml4t + 0x1000
@@ -37,21 +38,24 @@ A20Enabled:
 ; Load kernel
 ;=============;
 
-                          ; dl starts of set to the correct device
-    mov dh, 0x0           ; Head : 0
-    mov ch, 0x0           ; Cylinder 0
-    mov cl, 0x2           ; Sector starts at 1, kernel is at 2
+    mov bx, (KERNEL_SIZE + 511) / 512 ; The number of sectors containing the kernel rounded up
 
-    xor bx, bx            ; set lefthand part of 0x0:KERNEL_BUFFER
-    mov es, bx            ;
-    mov bx, KERNEL_BUFFER ; set righthand partof 0x0:KERNEL_BUFFER
+readBlock:
+    mov si, dap                       ; Load DAP struct
+    mov ah, 0x42                      ; Use LBA addressing
+                                      ; dl starts off set to the correct device
+    int 0x13                          ; Interrupt for low-level disk services
 
-readDrive:
-    mov ah, 0x02          ; Read Sector From Drive
-    mov al, 0x7F          ; Read 127 sectors
+    mov ax, [dap_lba]                 ; Start at next sector
+    add ax, 1                         ;
+    mov [dap_lba], ax                 ;
 
-    int 0x13              ; Interrupt for low-level disk services
-    jc readDrive          ; Try to read again if drive failed
+    mov ax, [dap_buffer_seg]          ; Update buffer offset accordingly
+    add ax, 512 / 16                  ;
+    mov [dap_buffer_seg], ax          ;
+
+    sub bx, 1                         ; Continue if there are still blocks left to load
+    jnz readBlock                     ;
 
 ;=============================;
 ; Real mode to Protected mode
@@ -156,10 +160,29 @@ init_lm:
 
     mov esi, KERNEL_BUFFER  ; Move loaded kernel
     mov edi, KERNEL_ADDRESS ; To KERNEL_ADDRESS
-    mov ecx, 512 * 127      ; Copy 512 * 127 bytes
+    mov ecx, KERNEL_SIZE    ; KERNEL_SIZE times
     rep movsd               ;
 
     call KERNEL_ADDRESS     ; call kernel
+
+;============;
+; DAP Struct
+;============;
+
+    dap:                      ; Disk Access Packet
+    	db 0x10
+    	db 0
+    dap_bcounts:
+        dw 1	              ; Number of blocks to read
+    dap_buffer_off:
+        dw 0                  ; Offset of buffer
+    dap_buffer_seg:
+    	dw KERNEL_BUFFER / 16 ; Segment of buffer
+    	                      ; (Note: Real mode addresses are computed using this formula:
+    	                      ; segment * 16 + offset)
+    dap_lba:
+        dd 1		          ; Lower 32 bits of starting LBA
+    	dd 0		          ; Upper 32 bits of starting LBA
 
 ;===========;
 ; 32bit GDT
