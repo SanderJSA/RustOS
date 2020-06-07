@@ -126,4 +126,25 @@ macro_rules! println {
     ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
 }
 
+use crate::test;
 
+test! (write_byte {
+    let mut writer = Writer::new();
+
+    writer.write_byte('R' as u8);
+
+    let screen_char = writer.buffer.chars[BUFFER_HEIGHT - 1][0];
+    assert!(screen_char.char == 'R' as u8);
+});
+
+test! (write_string {
+    let mut writer = Writer::new();
+
+    writer.write_str("\nRust is awesome\n");
+
+    let line = writer.buffer.chars[BUFFER_HEIGHT - 2];
+    let expected = "Rust is awesome".as_bytes();
+    for i in 1..expected.len() {
+        assert!(line[i].char == expected[i]);
+    }
+});

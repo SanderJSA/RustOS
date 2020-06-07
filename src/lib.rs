@@ -18,6 +18,7 @@ use core::panic::PanicInfo;
 use x86_64::*;
 pub use tty::run_tty;
 
+/// Initializes hardware
 pub fn init() {
     gdt::init();
     interrupt::init_idt();
@@ -25,14 +26,12 @@ pub fn init() {
     x86_64_crate::instructions::interrupts::enable();
 }
 
-//
-// Unit tests runner
-//
 
+/// Unit test runner
 #[cfg(test)]
 #[no_mangle]
 #[link_section = ".kernel_start"]
-pub extern "C" fn _start() -> ! {
+extern "C" fn _start() -> ! {
     init();
     test_main();
     loop {};
@@ -43,10 +42,10 @@ fn test_runner(tests: &[&dyn Fn()]) {
     println!("\nRunning {} tests", tests.len());
     for test in tests {
         test();
-        println!("ok");
     }
 }
 
+/// Panic Handler for unit test runner
 #[cfg(test)]
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
@@ -54,20 +53,16 @@ fn panic(_info: &PanicInfo) -> ! {
     loop {}
 }
 
-//
-// Sanity checks
-//
-
-#[cfg(test)]
-#[test_case]
-fn trivial_success() {
-    print!("Test trivial_success: ");
-    assert!(1 == 1);
-}
-
-#[cfg(test)]
-#[test_case]
-fn trivial_fail() {
-    print!("Test trivial_fail: ");
-    assert!(false);
+/// Macro to quickly create a unit test
+#[macro_export]
+macro_rules! test {
+    ($name:tt $body:block) => {
+    #[cfg(test)]
+    #[test_case]
+    fn $name() {
+        print!("Test {}: ", stringify!($name));
+        $body
+        println!("[OK]");
+        }
+    }
 }

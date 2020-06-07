@@ -1,6 +1,9 @@
+//! This module implements a tty
+
 use crate::{println, print};
 use driver::ps2_keyboard::readline;
 
+/// Start and run tty
 pub fn run_tty() {
     // Set up shell
     println!("     .~~~~`\\~~\\
@@ -19,7 +22,7 @@ pub fn run_tty() {
 
         match input {
             "help\n" => println!("RustOS tty v1.0\nNo other commands are supported for now."),
-            _ => println!("Unknown command: {}", input),
+            _ => print!("Unknown command: {}", input),
         }
     }
 }
