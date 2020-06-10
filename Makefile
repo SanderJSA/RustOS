@@ -24,7 +24,7 @@ run: $(IMAGE)
 	qemu-system-x86_64 -drive file=$(IMAGE),format=raw -boot c
 
 # Create image with bootloader on first sector and kernel on the first sector onwards
-$(IMAGE): $(BUILD_DIR)/boot_loader.bin $(BUILD_DIR)/kernel.bin
+$(IMAGE): $(BUILD_DIR)/bootloader.bin $(BUILD_DIR)/kernel.bin
 	dd if=/dev/zero of=$@ bs=512 count=256
 	dd if=$< of=$@ conv=notrunc
 	dd if=$(BUILD_DIR)/kernel.bin of=$@ conv=notrunc bs=512 seek=1
@@ -47,7 +47,7 @@ debug: $(IMAGE_DEBUG)
 	gdb -ex "target remote localhost:1234" -ex "file $(KERNEL_DEBUG)"
 
 # Create image with bootloader on first sector and kernel on the first sector onwards
-$(IMAGE_DEBUG): $(BUILD_DIR)/boot_loader.bin $(BUILD_DIR)/kernel_debug.bin
+$(IMAGE_DEBUG): $(BUILD_DIR)/bootloader.bin $(BUILD_DIR)/kernel_debug.bin
 	dd if=/dev/zero of=$@ bs=512 count=256
 	dd if=$< of=$@ conv=notrunc
 	dd if=$(BUILD_DIR)/kernel_debug.bin of=$@ conv=notrunc bs=512 seek=1
@@ -68,7 +68,7 @@ test: $(IMAGE_CHECK)
 	qemu-system-x86_64 -drive file=$(IMAGE_CHECK),format=raw -device isa-debug-exit,iobase=0xf4,iosize=0x04 -boot c
 
 # Create image with bootloader on first sector and kernel on the first sector onwards
-$(IMAGE_CHECK): $(BUILD_DIR)/boot_loader.bin $(BUILD_DIR)/kernel_check.bin
+$(IMAGE_CHECK): $(BUILD_DIR)/bootloader.bin $(BUILD_DIR)/kernel_check.bin
 	dd if=/dev/zero of=$@ bs=512 count=256
 	dd if=$< of=$@ conv=notrunc
 	dd if=$(BUILD_DIR)/kernel_check.bin of=$@ conv=notrunc bs=512 seek=1

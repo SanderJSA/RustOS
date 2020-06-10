@@ -12,11 +12,13 @@ pub mod driver;
 mod tty;
 mod utils;
 mod x86_64;
+mod memory;
 
 #[cfg(test)]
 use core::panic::PanicInfo;
 use x86_64::*;
 pub use tty::run_tty;
+pub use paging::memory_map;
 
 /// Initializes hardware
 pub fn init() {

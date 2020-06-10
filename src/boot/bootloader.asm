@@ -6,6 +6,9 @@
     KERNEL_ADDRESS equ 0x100000
     KERNEL_SIZE    equ 128000
 
+    MEMORY_MAP_LEN equ 0x500
+    MEMORY_MAP     equ 0x504
+
     pml4t          equ 0x1000
     pdpt           equ pml4t + 0x1000
     pdt            equ pdpt + 0x1000
@@ -56,6 +59,62 @@ readBlock:
 
     sub bx, 1                         ; Continue if there are still blocks left to load
     jnz readBlock                     ;
+
+;================;
+; Get memory map
+;================;
+
+    mov di, MEMORY_MAP        ; Where our memory map will be
+	xor bp, bp		          ; Keep an entry count in bp
+
+    xor ebx, ebx		      ; Set up registers to get an E820 memory map
+	mov edx, 0x0534D4150	  ; Place "SMAP" into edx
+	mov eax, 0xe820           ;
+
+	mov dword [es:di + 20], 1 ; Force a valid ACPI 3.X entry
+	mov ecx, 24		          ; Ask for 24 bytes
+
+	int 0x15
+
+	jmp .jmpin
+
+.e820lp:
+	mov edx, 0x0534D4150	  ; Fix potentially trashed register
+	mov eax, 0xe820		      ;
+
+	mov dword [es:di + 20], 1 ; Force a valid ACPI 3.X entry
+	mov ecx, 24		          ; Ask for 24 bytes again
+
+	int 0x15
+
+	jc .e820f		          ; Reached end of list
+
+.jmpin:
+	jcxz .skipent		      ; Skip any 0 length entries
+	cmp cl, 20		          ; Got a 24 byte ACPI 3.X response?
+	jbe .notext
+	test byte [es:di + 20], 1 ; If so: is the "ignore this data" bit clear?
+	je .skipent
+
+.notext:
+	mov ecx, [es:di + 16]	  ; Get type of region
+    cmp ecx, 2                ; Only keep usable and reclaimable memory
+	je .skipent               ; Eliminate type 2 region
+    cmp ecx, 4                ;
+	jge .skipent              ; Eliminate type 4 and 5 region
+
+	mov ecx, [es:di + 8]	  ; Get lower uint32_t of memory region length
+	or ecx, [es:di + 12]	  ; Or it with upper uint32_t to test for zero
+	jz .skipent		          ; If length uint64_t is 0, skip entry
+
+	add bp, 1     	          ; Got a good entry: ++count, move to next storage spot
+	add di, 24                ; Update entry offset in memory map
+.skipent:
+	test ebx, ebx		      ; If ebx resets to 0, list is complete
+	jne .e820lp
+
+.e820f:
+	mov [MEMORY_MAP_LEN], bp  ; Save the entry count
 
 ;=============================;
 ; Real mode to Protected mode
