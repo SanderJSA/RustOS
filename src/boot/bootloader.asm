@@ -150,30 +150,34 @@ init_pm :
 ; Set up Page Tables
 ;====================;
 
-    mov edi, pml4t               ; Set the destination index to pml4t.
-    mov ecx, 0x1000              ; Clear all entries
-    xor eax, eax
-    rep stosd
+    mov edi, pml4t                ; Set the destination index to pml4t.
+    mov ecx, 0x1000               ; Clear all entries
+    xor eax, eax                  ;
+    rep stosd                     ;c
+
+    mov edi, pml4t                ; Set the destination index to pml4t.
+    add edi, 511 * 8              ; Map last entry to the table itself
+    mov DWORD [edi], pml4t | 0x03 ;
 
     ; Identity map the first 2MB for kernel and VGA
-    mov edi, pml4t               ; get address of PML4T
-    mov cr3, edi                 ; Set Paging entry point to pml4t's address
-    mov DWORD [edi], pdpt | 0x03 ; PML4T[0] = PDPT[0] with read and write properties on
+    mov edi, pml4t                ; get address of PML4T
+    mov cr3, edi                  ; Set Paging entry point to pml4t's address
+    mov DWORD [edi], pdpt | 0x03  ; PML4T[0] = PDPT[0] with read and write properties on
 
-    mov edi, pdpt                ; get address of PDPT
-    mov DWORD [edi], pdt | 0x03  ; PDPT[0] = PDT[0] with read and write properties on
+    mov edi, pdpt                 ; get address of PDPT
+    mov DWORD [edi], pdt | 0x03   ; PDPT[0] = PDT[0] with read and write properties on
 
-    mov edi, pdt                 ; get address of PDT
-    mov DWORD [edi], pt | 0x03   ; PDT[0] = PT[0] with read and write properties on
+    mov edi, pdt                  ; get address of PDT
+    mov DWORD [edi], pt | 0x03    ; PDT[0] = PT[0] with read and write properties on
 
-    mov edi, pt                  ; get address of PT
-    mov ebx, 0x03                ; Set page start and properties
-    mov ecx, 512                 ; Repeat for 512 entries
+    mov edi, pt                   ; get address of PT
+    mov ebx, 0x03                 ; Set page start and properties
+    mov ecx, 512                  ; Repeat for 512 entries
 .BuildPages:
-    mov DWORD [edi], ebx         ; Write page info
-    add ebx, 0x1000              ; Go to next Page
-    add edi, 8                   ; Go to next Page Table entry
-    loop .BuildPages             ; Repeat 512 times
+    mov DWORD [edi], ebx          ; Write page info
+    add ebx, 0x1000               ; Go to next Page
+    add edi, 8                    ; Go to next Page Table entry
+    loop .BuildPages              ; Repeat 512 times
 
 ;=============================;
 ; Protected mode to Long mode

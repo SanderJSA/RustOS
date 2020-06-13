@@ -18,7 +18,6 @@ mod memory;
 use core::panic::PanicInfo;
 use x86_64::*;
 pub use tty::run_tty;
-pub use paging::memory_map;
 
 /// Initializes hardware
 pub fn init() {
@@ -62,9 +61,9 @@ macro_rules! test {
     #[cfg(test)]
     #[test_case]
     fn $name() {
-        print!("Test {}: ", stringify!($name));
+        crate::print!("Test {}: ", stringify!($name));
         $body
-        println!("[OK]");
+        crate::println!("[OK]");
         }
     }
 }

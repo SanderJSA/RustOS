@@ -1,4 +1,4 @@
-use x86_64_crate::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
+use x86_64_crate::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 use x86_64::port;
 use x86_64::gdt;
 use x86_64::pic::ChainedPics;
@@ -36,6 +36,7 @@ impl PICIndex {
 pub fn init_idt() {
     unsafe {
         IDT.breakpoint.set_handler_fn(breakpoint_handler);
+        IDT.page_fault.set_handler_fn(page_fault_handler);
         IDT.double_fault.set_handler_fn(double_fault_handler)
             .set_stack_index(gdt::DOUBLE_FAULT_IST_INDEX);
         IDT[PICIndex::Timer.as_usize()].set_handler_fn(timer_interrupt_handler);
@@ -64,4 +65,17 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: &mut Interrup
         print!("{}", symbol);
     }
     unsafe { PICS.get_already_init().notify_end_of_interrupt(PICIndex::Keyboard.as_u8()); }
+}
+extern "x86-interrupt" fn page_fault_handler(stack_frame: &mut InterruptStackFrame,
+                                             error_code: PageFaultErrorCode) {
+    let address: usize;
+    unsafe {
+        llvm_asm!("mov %cr2, %rax" : "={rax}"(address) ::: "volatile");
+    }
+
+    println!("EXCEPTION: PAGE FAULT");
+    println!("Accessed Address: {}", address);
+    println!("Error Code: {:?}", error_code);
+    println!("{:#?}", stack_frame);
+    loop {};
 }
