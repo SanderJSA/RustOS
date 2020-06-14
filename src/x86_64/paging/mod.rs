@@ -1,3 +1,2 @@
-pub mod paging;
+pub mod tables;
 pub mod memory_map;
-

@@ -2,12 +2,13 @@ use core::ops::{Index, IndexMut};
 use core::marker::PhantomData;
 use memory::frame::Frame;
 use memory::PAGE_SIZE;
+use memory::frame_allocator::FrameAllocator;
 
 const ENTRY_COUNT: usize = 512;
 
 #[allow(dead_code)]
 #[repr(u64)]
-enum EntryFlag {
+pub enum EntryFlag {
     Present =        1,
     Writable =       1 << 1,
     UserAccessible = 1 << 2,
@@ -25,12 +26,8 @@ enum EntryFlag {
 pub struct Entry(u64);
 
 impl Entry {
-    /// Check if entry is free
-    pub fn is_unused(&self) -> bool {
-        self.0 == 0
-    }
-
     /// Frees entry
+    #[allow(dead_code)]
     pub fn set_unused(&mut self) {
         self.0 = 0;
     }
@@ -116,6 +113,7 @@ pub struct Table<L: TableLevel> {
 /// Methods that apply to every tables
 impl<L> Table<L> where L: TableLevel {
     /// Empties table
+    #[allow(dead_code)]
     pub fn zero(&mut self) {
         for entry in self.entries.iter_mut() {
             entry.set_unused();
@@ -151,6 +149,18 @@ impl<L> Table<L> where L: HierarchicalLevel {
         self.next_table_addr(index)
             .map(|address| unsafe { &mut *(address as *mut Table<L::NextLevel>)})
     }
+
+    fn create_table(&mut self, index: usize, allocator: &mut FrameAllocator)
+        -> &mut Table<L::NextLevel>
+    {
+        if self.next_table(index).is_none() {
+            let frame = allocator.allocate_frame()
+                .expect("Could not allocate any frame");
+            self[index].set(frame, (EntryFlag::Present as u64) | (EntryFlag::Writable as u64));
+        }
+
+        self.next_table_mut(index).unwrap()
+    }
 }
 
 impl<L> Index<usize> for Table<L> where L: TableLevel {
@@ -167,6 +177,7 @@ impl<L> IndexMut<usize> for Table<L> where L: TableLevel {
     }
 }
 
+#[allow(dead_code)]
 pub fn translate_addr(virt_addr: usize) -> Option<usize> {
     let offset = virt_addr %  PAGE_SIZE;
     let page = virt_addr / PAGE_SIZE;
@@ -177,4 +188,15 @@ pub fn translate_addr(virt_addr: usize) -> Option<usize> {
         .and_then(|p2| p2.next_table(Level2::index(page)))
         .and_then(|p1| p1[Level1::index(page)].address())
         .and_then(|frame| Some(frame.base_addr + offset))
+}
+
+pub fn map_to(virt_addr: usize, phys_addr: usize, flags: u64, allocator: &mut FrameAllocator) {
+    let page = virt_addr / PAGE_SIZE;
+
+    get_level4()
+        .create_table(Level4::index(page), allocator)
+        .create_table(Level3::index(page), allocator)
+        .create_table(Level2::index(page), allocator)
+        .index_mut(Level1::index(page))
+        .set(Frame::from_address(phys_addr), flags | EntryFlag::Present as u64);
 }
