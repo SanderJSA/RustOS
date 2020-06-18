@@ -5,15 +5,13 @@ BUILD_DIR := build
 
 IMAGE := $(BUILD_DIR)/$(NAME).img
 IMAGE_DEBUG := $(BUILD_DIR)/$(NAME)_debug.img
-IMAGE_CHECK := $(BUILD_DIR)/$(NAME)_check.img
 
 KERNEL = target/x86_64-RustOS/release/rust_os
 KERNEL_DEBUG = target/x86_64-RustOS/debug/rust_os
-KERNEL_CHECK = target/x86_64-RustOS/debug/rust_os
 
 SRC = $(shell find src -name *.rs)
 
-.PHONY: run debug clean
+.PHONY: run debug clean .FORCE
 
 
 #
@@ -61,21 +59,27 @@ $(KERNEL_DEBUG): $(SRC)
 	cargo xbuild --bin rust_os
 
 #
-# Check
+# Run tests
 #
 
-test: $(IMAGE_CHECK)
-	qemu-system-x86_64 -drive file=$(IMAGE_CHECK),format=raw -device isa-debug-exit,iobase=0xf4,iosize=0x04 -boot c
+IMAGE_TEST := $(BUILD_DIR)/$(notdir $(KERNEL_TEST)).img
+KERNEL_TEST_BIN = $(BUILD_DIR)/$(notdir $(KERNEL_TEST)).bin
+
+test: $(IMAGE_TEST)
+	@qemu-system-x86_64 -drive file=$<,format=raw -boot c \
+	-device isa-debug-exit,iobase=0xf4,iosize=0x04 -serial stdio -display none \
+	|| [ $$? -eq 33 ]; exit
+
 
 # Create image with bootloader on first sector and kernel on the first sector onwards
-$(IMAGE_CHECK): $(BUILD_DIR)/bootloader.bin $(BUILD_DIR)/kernel_check.bin
-	dd if=/dev/zero of=$@ bs=512 count=256
-	dd if=$< of=$@ conv=notrunc
-	dd if=$(BUILD_DIR)/kernel_check.bin of=$@ conv=notrunc bs=512 seek=1
+$(IMAGE_TEST): $(BUILD_DIR)/bootloader.bin $(KERNEL_TEST_BIN)
+	@dd status=none if=/dev/zero of=$@ bs=512 count=256
+	@dd status=none if=$< of=$@ conv=notrunc
+	@dd status=none if=$(KERNEL_TEST_BIN) of=$@ conv=notrunc bs=512 seek=1
 
 # Convert kernel to binary
-$(BUILD_DIR)/kernel_check.bin: $(KERNEL_TEST)
-	llvm-objcopy -O binary --binary-architecture=i386:x86-64 $< $@
+$(KERNEL_TEST_BIN): $(KERNEL_TEST)
+	@llvm-objcopy -O binary --binary-architecture=i386:x86-64 $< $@
 
 #
 # Intermediate

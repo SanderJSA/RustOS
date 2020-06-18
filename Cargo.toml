@@ -5,3 +5,12 @@ authors = ["Sander JSA <sanderjsa@hotmail.com>"]
 
 [dependencies]
 x86_64 = "0.10.2"
+
+[[bin]]
+name = "rust_os"
+test = false
+
+[[test]]
+name = "simple_boot"
+harness = false
+
