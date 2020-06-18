@@ -9,14 +9,15 @@
 extern crate x86_64 as x86_64_crate;
 
 pub mod driver;
+pub mod x86_64;
+mod memory;
 mod tty;
 mod utils;
-mod x86_64;
-mod memory;
 
 #[cfg(test)]
 use core::panic::PanicInfo;
 use x86_64::*;
+pub use x86_64::{QemuExitCode, exit_qemu};
 pub use tty::run_tty;
 
 /// Initializes hardware
@@ -35,12 +36,12 @@ pub fn init() {
 extern "C" fn _start() -> ! {
     init();
     test_main();
-    loop {};
+    exit_qemu(QemuExitCode::Success)
 }
 
 #[cfg(test)]
 fn test_runner(tests: &[&dyn Fn()]) {
-    println!("\nRunning {} tests", tests.len());
+    serial_println!("\nRunning {} tests", tests.len());
     for test in tests {
         test();
     }
@@ -49,9 +50,9 @@ fn test_runner(tests: &[&dyn Fn()]) {
 /// Panic Handler for unit test runner
 #[cfg(test)]
 #[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
-    println!("Test failed: {}", _info);
-    loop {}
+pub fn panic(_info: &PanicInfo) -> ! {
+    serial_println!("Test failed: {}", _info);
+    exit_qemu(QemuExitCode::Failure)
 }
 
 /// Macro to quickly create a unit test
@@ -61,9 +62,9 @@ macro_rules! test {
     #[cfg(test)]
     #[test_case]
     fn $name() {
-        crate::print!("Test {}: ", stringify!($name));
+        crate::serial_print!("Test {}: ", stringify!($name));
         $body
-        crate::println!("[OK]");
+        crate::serial_println!("[OK]");
         }
     }
 }

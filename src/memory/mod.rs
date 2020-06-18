@@ -12,6 +12,7 @@ static mut ALLOCATOR: Lazy<FrameAllocator> = Lazy::new();
 /// Map a page of memory
 /// An address is provided if none are given
 /// This syscall is prone to data races
+#[allow(dead_code)]
 pub fn mmap(addr: Option<usize>, flags: u64) -> usize {
 
     unsafe {

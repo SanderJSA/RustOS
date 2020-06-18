@@ -140,7 +140,7 @@ test! (write_byte {
 test! (write_string {
     let mut writer = Writer::new();
 
-    writer.write_str("\nRust is awesome\n");
+    writer.write_str("\nRust is awesome\n").unwrap();
 
     let line = writer.buffer.chars[BUFFER_HEIGHT - 2];
     let expected = "Rust is awesome".as_bytes();

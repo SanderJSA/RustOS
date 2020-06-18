@@ -4,7 +4,7 @@
 extern crate rust_os;
 
 use core::panic::PanicInfo;
-use rust_os::println;
+use rust_os::*;
 
 #[no_mangle]
 #[link_section = ".kernel_start"]
