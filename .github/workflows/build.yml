@@ -25,16 +25,19 @@ jobs:
     - name: Switch to Rust nightly
       run: rustup default nightly
 
+    - name: Install Rustup Component
+      run: rustup component add rust-src
+
     - name: Install cargo-xbuild
       run: cargo install cargo-xbuild
-      
+
     - name: Install QEMU
       run: sudo apt update && sudo apt install qemu-system-x86
-            
+
     - name: Check for warnings
       run: cargo xbuild
       env:
         RUSTFLAGS: -D warnings
-      
+
     - name: Run tests
       run: cargo xtest
