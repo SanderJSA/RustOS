@@ -1,0 +1,40 @@
+name: Unit and Integration tests CI
+
+on:
+  push:
+    branches:
+      - master
+      - dev
+  pull_request:
+    branches: 
+      - master
+      - dev
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v2
+
+    - name: Switch to Rust nightly
+      run: rustup default nightly
+
+    - name: Install cargo-xbuild
+      run: cargo install cargo-xbuild
+      
+    - name: Install QEMU
+      run: sudo apt update && sudo apt install qemu-system-x86
+            
+    - name: Check for warnings
+      run: cargo xbuild
+      env:
+        RUSTFLAGS: -D warnings
+      
+    - name: Run tests
+      run: cargo xtest
