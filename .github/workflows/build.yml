@@ -31,13 +31,13 @@ jobs:
     - name: Install cargo-xbuild
       run: cargo install cargo-xbuild
 
-    - name: Install QEMU
-      run: sudo apt update && sudo apt install qemu-system-x86
+    - name: Install QEMU and Nasm
+      run: sudo apt update && sudo apt install qemu-system-x86 nasm
 
     - name: Check for warnings
-      run: cargo xbuild
+      run: cargo xbuild --verbose
       env:
         RUSTFLAGS: -D warnings
 
     - name: Run tests
-      run: cargo xtest
+      run: cargo xtest --verbose
