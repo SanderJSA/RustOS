@@ -25,14 +25,14 @@ jobs:
     - name: Switch to Rust nightly
       run: rustup default nightly
 
-    - name: Install Rustup Component
-      run: rustup component add rust-src
+    - name: Install Rustup Components
+      run: rustup component add rust-src llvm-tools-preview
 
-    - name: Install cargo-xbuild
-      run: cargo install cargo-xbuild
+    - name: Install xbuild and binutils
+      run: cargo install cargo-xbuild cargo-binutils
 
-    - name: Install QEMU, Nasm and llvm-tools
-      run: sudo apt update && sudo apt install qemu-system-x86 nasm llvm
+    - name: Install QEMU, Nasm
+      run: sudo apt update && sudo apt install qemu-system-x86 nasm
 
     - name: Check for warnings
       run: cargo xbuild --verbose
