@@ -1,6 +1,6 @@
 NAME = RustOS
 
-LD := ld.lld
+OBJCOPY = target/sysroot/lib/rustlib/x86_64-unknown-linux-gnu/bin/llvm-objcopy
 BUILD_DIR := build
 
 IMAGE := $(BUILD_DIR)/$(NAME).img
@@ -29,7 +29,7 @@ $(IMAGE): $(BUILD_DIR)/bootloader.bin $(BUILD_DIR)/kernel.bin
 
 # Convert kernel to binary
 $(BUILD_DIR)/kernel.bin:$(KERNEL)
-	cargo objcopy --target x86_64-RustOS.json -- -O binary --binary-architecture=i386:x86-64 $< $@
+	$(OBJCOPY) -O binary --binary-architecture=i386:x86-64 $< $@
 
 # Compile rust kernel
 $(KERNEL): $(SRC)
@@ -52,7 +52,7 @@ $(IMAGE_DEBUG): $(BUILD_DIR)/bootloader.bin $(BUILD_DIR)/kernel_debug.bin
 
 # link kernel and kernel start to binary
 $(BUILD_DIR)/kernel_debug.bin: $(KERNEL_DEBUG)
-	cargo objcopy --target x86_64-RustOS.json -- -O binary --binary-architecture=i386:x86-64 $< $@
+	$(OBJCOPY) -O binary --binary-architecture=i386:x86-64 $< $@
 
 # Compile rust kernel in debug mode
 $(KERNEL_DEBUG): $(SRC)
@@ -79,7 +79,7 @@ $(IMAGE_TEST): $(BUILD_DIR)/bootloader.bin $(KERNEL_TEST_BIN)
 
 # Convert kernel to binary
 $(KERNEL_TEST_BIN): $(KERNEL_TEST)
-	@cargo objcopy --target x86_64-RustOS.json -- -O binary --binary-architecture=i386:x86-64 $< $@
+	@$(OBJCOPY) -O binary --binary-architecture=i386:x86-64 $< $@
 
 #
 # Intermediate

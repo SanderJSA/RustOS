@@ -19,17 +19,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Repository
+    - name: Checkout repository
       uses: actions/checkout@v2
 
     - name: Switch to Rust nightly
       run: rustup default nightly
 
-    - name: Install Rustup Components
+    - name: Install Rustup components
       run: rustup component add rust-src llvm-tools-preview
 
-    - name: Install xbuild and binutils
-      run: cargo install cargo-xbuild cargo-binutils
+    - name: Install xbuild
+      run: cargo install cargo-xbuild
 
     - name: Install QEMU, Nasm
       run: sudo apt update && sudo apt install qemu-system-x86 nasm
