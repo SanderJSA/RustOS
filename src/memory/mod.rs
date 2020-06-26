@@ -3,7 +3,8 @@ pub mod frame_allocator;
 
 pub const PAGE_SIZE: usize = 4096;
 
-use x86_64::paging::tables;
+#[allow(unused_imports)]
+use x86_64::paging::tables::{self, EntryFlag};
 use self::frame_allocator::FrameAllocator;
 use utils::lazy_static::Lazy;
 
@@ -29,3 +30,32 @@ pub fn mmap(addr: Option<usize>, flags: u64) -> usize {
         addr
     }
 }
+
+
+use crate::test;
+
+test!(basic_allocation {
+    let page = mmap(None, EntryFlag::Writable as u64) as *mut u8;
+    unsafe {
+        *page.offset(0) = 204;
+        *page.offset(1000) = 203;
+        *page.offset(4095) = 204;
+
+        assert!(*page.offset(0) == 204);
+        assert!(*page.offset(1000) == 203);
+        assert!(*page.offset(4095) == 204);
+    }
+});
+
+test!(fixed_allocation {
+    let page = mmap(Some(0xDEADBEEF000), EntryFlag::Writable as u64) as *mut u8;
+    unsafe {
+        *page.offset(0) = 204;
+        *page.offset(423) = 203;
+        *page.offset(4095) = 96;
+
+        assert!(*page.offset(0) == 204);
+        assert!(*page.offset(423) == 203);
+        assert!(*page.offset(4095) == 96);
+    }
+});

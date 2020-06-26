@@ -14,3 +14,7 @@ test = false
 name = "simple_boot"
 harness = false
 
+[[test]]
+name = "page_fault"
+harness = false
+

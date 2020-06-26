@@ -77,5 +77,5 @@ extern "x86-interrupt" fn page_fault_handler(stack_frame: &mut InterruptStackFra
     println!("Accessed Address: {}", address);
     println!("Error Code: {:?}", error_code);
     println!("{:#?}", stack_frame);
-    loop {};
+    panic!();
 }

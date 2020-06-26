@@ -51,7 +51,7 @@ fn test_runner(tests: &[&dyn Fn()]) {
 #[cfg(test)]
 #[panic_handler]
 pub fn panic(_info: &PanicInfo) -> ! {
-    serial_println!("Test failed: {}", _info);
+    serial_println!("[KO]");
     exit_qemu(QemuExitCode::Failure)
 }
 
