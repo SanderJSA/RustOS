@@ -1,29 +1,38 @@
-use core::sync::atomic::AtomicBool;
-use core::sync::atomic::Ordering::{Release, Acquire, Relaxed};
+use core::sync::atomic::{AtomicBool, Ordering};
 
-static mut LOCKED : AtomicBool = AtomicBool::new(false);
+pub struct Spinlock(AtomicBool);
 
-pub fn obtain_lock() {
-    unsafe {
-        while LOCKED.compare_and_swap(false, true, Acquire) {}
+impl Spinlock {
+    pub const fn new() -> Spinlock {
+        Spinlock(AtomicBool::new(false))
+    }
+
+    #[allow(dead_code)]
+    pub fn once(&self) -> bool {
+        !self.0.compare_and_swap(false, true, Ordering::SeqCst)
+    }
+
+    pub fn obtain(&self) {
+        while self.0.compare_and_swap(false, true, Ordering::SeqCst) {}
+    }
+
+    pub fn release(&self) {
+        self.0.store(false, Ordering::SeqCst);
     }
 }
 
-pub fn release_lock() {
-    unsafe {
-        LOCKED.store(false, Release);
-    }
-}
+use crate::test;
 
-// Implements a poor man's version of a call_once
-pub struct Once(AtomicBool);
+test!(call_once {
+    let mut result = false;
+    let lock = Spinlock::new();
 
-impl Once {
-    pub const fn new() -> Once {
-        Once(AtomicBool::new(false))
+    if lock.once() {
+        result = true;
+    }
+    if lock.once() {
+        assert!(false);
     }
 
-    pub fn initialize(&mut self) -> bool {
-        !self.0.compare_and_swap(false, true, Relaxed)
-    }
-}
+    assert!(result);
+});
