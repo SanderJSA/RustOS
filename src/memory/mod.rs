@@ -6,29 +6,23 @@ pub const PAGE_SIZE: usize = 4096;
 #[allow(unused_imports)]
 use x86_64::paging::tables::{self, EntryFlag};
 use self::frame_allocator::FrameAllocator;
-use utils::lazy_static::Lazy;
+use utils::lazy_static::LazyStatic;
 
-static mut ALLOCATOR: Lazy<FrameAllocator> = Lazy::new();
+static ALLOCATOR: LazyStatic<FrameAllocator> =
+    LazyStatic::new(FrameAllocator::new);
 
 /// Map a page of memory
 /// An address is provided if none are given
 /// This syscall is prone to data races
 #[allow(dead_code)]
 pub fn mmap(addr: Option<usize>, flags: u64) -> usize {
+    let frame = ALLOCATOR.obtain().allocate_frame().expect("Out of memory");
 
-    unsafe {
-        let frame =  ALLOCATOR
-            .get(FrameAllocator::new)
-            .allocate_frame()
-            .expect("Out of memory");
+    // Identity map if no address is given, use address otherwise
+    let addr = addr.unwrap_or(frame.base_addr);
 
-        // Identity map if no address is given, use address otherwise
-        let addr = addr.unwrap_or(frame.base_addr);
-
-        tables::map_to(addr, frame.base_addr, flags,
-                       &mut ALLOCATOR.get_already_init());
-        addr
-    }
+    tables::map_to(addr, frame.base_addr, flags, &mut ALLOCATOR.obtain());
+    addr
 }
 
 

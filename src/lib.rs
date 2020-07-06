@@ -23,7 +23,7 @@ pub use tty::run_tty;
 /// Initializes hardware
 pub fn init() {
     gdt::init();
-    interrupt::init_idt();
+    unsafe { interrupt::init_idt(); }
     interrupt::init_pics();
     x86_64_crate::instructions::interrupts::enable();
 }

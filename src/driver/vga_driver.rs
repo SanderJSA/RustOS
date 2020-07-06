@@ -1,7 +1,8 @@
 use core::fmt;
 use core::fmt::Write;
+use utils::lazy_static::LazyStatic;
 
-use utils::*;
+static WRITER : LazyStatic<Writer> = LazyStatic::new(Writer::new);
 
 const BUFFER_HEIGHT: usize = 25;
 const BUFFER_WIDTH: usize = 80;
@@ -108,11 +109,7 @@ impl fmt::Write for Writer {
 
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
-    static mut WRITER : lazy_static::Lazy<Writer> = lazy_static::Lazy::new();
-
-    spinlock::obtain_lock();
-    unsafe { WRITER.get(Writer::new).write_fmt(args).unwrap(); }
-    spinlock::release_lock();
+    WRITER.obtain().write_fmt(args).unwrap();
 }
 
 #[macro_export]

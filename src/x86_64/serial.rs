@@ -1,7 +1,10 @@
-use port::{outb, inb};
-use utils::{lazy_static, spinlock};
 use core::fmt;
 use core::fmt::Write;
+use utils::lazy_static::LazyStatic;
+use port::{outb, inb};
+
+static WRITER : LazyStatic<Serial> =
+    LazyStatic::new(|| Serial::new(0x3F8));
 
 struct Serial {
     port: u16,
@@ -41,13 +44,8 @@ impl fmt::Write for Serial {
 }
 
 pub fn _print(args: fmt::Arguments) {
-    static mut WRITER : lazy_static::Lazy<Serial> = lazy_static::Lazy::new();
-
-    spinlock::obtain_lock();
-    unsafe { WRITER.get(|| Serial::new(0x3F8)).write_fmt(args).unwrap(); }
-    spinlock::release_lock();
+    WRITER.obtain().write_fmt(args).unwrap();
 }
-
 
 #[macro_export]
 macro_rules! serial_print {
