@@ -2,8 +2,6 @@ use core::ptr;
 use core::str;
 use driver::vga_driver::WRITER;
 
-use crate::println;
-
 const BUFFER_SIZE: usize = 2048;
 
 struct Buffer {
