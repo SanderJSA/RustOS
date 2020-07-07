@@ -2,7 +2,7 @@ use core::fmt;
 use core::fmt::Write;
 use utils::lazy_static::LazyStatic;
 
-static WRITER : LazyStatic<Writer> = LazyStatic::new(Writer::new);
+pub static WRITER : LazyStatic<Writer> = LazyStatic::new(Writer::new);
 
 const BUFFER_HEIGHT: usize = 25;
 const BUFFER_WIDTH: usize = 80;
@@ -96,6 +96,17 @@ impl Writer {
         self.col_pos = 0;
 
     }
+
+    pub fn erase_byte(&mut self) {
+        if self.col_pos != 0 {
+            self.col_pos -= 1;
+            let row = BUFFER_HEIGHT - 1;
+            let col = self.col_pos;
+
+            let color_code = self.color_code;
+            self.buffer.chars[row][col] = ScreenChar { char: ' ' as u8, color_code };
+        }
+    }
 }
 
 impl fmt::Write for Writer {
@@ -110,6 +121,10 @@ impl fmt::Write for Writer {
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
     WRITER.obtain().write_fmt(args).unwrap();
+}
+
+pub fn erase_byte() {
+    WRITER.obtain().erase_byte();
 }
 
 #[macro_export]

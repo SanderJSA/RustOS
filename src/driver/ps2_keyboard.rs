@@ -1,5 +1,8 @@
 use core::ptr;
 use core::str;
+use driver::vga_driver::WRITER;
+
+use crate::println;
 
 const BUFFER_SIZE: usize = 2048;
 
@@ -25,33 +28,37 @@ impl Buffer {
 
         self.data[self.end] = value as u8;
         self.end += 1;
+        WRITER.obtain().write_byte(value as u8)
     }
 
     fn remove_char(&mut self) {
         if self.end != self.start {
             self.end -= 1;
+            WRITER.obtain().erase_byte()
         }
     }
 
-    fn wait_for_more(&mut self) -> bool {
+    fn wait_for_more(&mut self, cur: usize) -> bool {
         unsafe {
-            ptr::read_volatile(&self.start) == ptr::read_volatile(&self.end)
+            cur >= ptr::read_volatile(&self.end)
         }
     }
 
     fn get_line(&mut self) -> &str {
-        let init = self.start;
+        let mut cur = self.start;
 
         loop {
-
             // Spin while waiting for buffer to get more values
-            while self.wait_for_more() {}
-
-            if self.data[self.start] == '\n' as u8 {
-                self.start += 1; // To include new line
-                return str::from_utf8(&self.data[init .. self.start]).unwrap();
+            while self.wait_for_more(cur) {
+                cur = self.end;
             }
-            self.start += 1;
+
+            if self.data[cur] == '\n' as u8 {
+                let string = &self.data[self.start .. cur + 1];
+                self.start = cur + 1;
+                return str::from_utf8(string).unwrap();
+            }
+            cur += 1;
         }
     }
 }
@@ -64,17 +71,14 @@ pub fn readline() -> &'static str{
     }
 }
 
-pub fn update_stdin(code: u8) -> Option<char> {
+pub fn update_stdin(code: u8) {
     if code == 0x0E {
         unsafe { STDIN_BUFFER.remove_char() };
     }
 
-    let value = parse_normal_char(code);
-    if let Some(value) = value {
+    if let Some(value) = parse_normal_char(code) {
         unsafe { STDIN_BUFFER.add_char(value) };
     }
-
-    value
 }
 
 fn parse_normal_char(code: u8) -> Option<char> {

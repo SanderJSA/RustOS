@@ -4,7 +4,7 @@ use x86_64::gdt;
 use x86_64::pic::ChainedPics;
 use driver::ps2_keyboard;
 use utils::lazy_static::LazyStatic;
-use crate::{print, println};
+use crate::println;
 
 pub const PIC_1_OFFSET: u8 = 32;
 pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
@@ -58,10 +58,7 @@ extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: &mut InterruptSt
 
 extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: &mut InterruptStackFrame) {
     let scan_code: u8 = port::inb(0x60);
-    let symbol = ps2_keyboard::update_stdin(scan_code);
-    if let Some(symbol) = symbol {
-        print!("{}", symbol);
-    }
+    ps2_keyboard::update_stdin(scan_code);
     PICS.obtain().notify_end_of_interrupt(PICIndex::Keyboard.as_u8());
 }
 extern "x86-interrupt" fn page_fault_handler(stack_frame: &mut InterruptStackFrame,
