@@ -18,3 +18,6 @@ harness = false
 name = "page_fault"
 harness = false
 
+[[test]]
+name = "ata_read_write"
+harness = false
