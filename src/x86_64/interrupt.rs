@@ -22,6 +22,8 @@ pub fn init_pics() {
 pub enum PICIndex {
     Timer = PIC_1_OFFSET,
     Keyboard,
+    PrimaryATA = PIC_1_OFFSET + 14,
+    SecondaryATA,
 }
 
 impl PICIndex {
@@ -40,6 +42,8 @@ pub unsafe fn init_idt() {
         .set_stack_index(gdt::DOUBLE_FAULT_IST_INDEX);
     IDT[PICIndex::Timer.as_usize()].set_handler_fn(timer_interrupt_handler);
     IDT[PICIndex::Keyboard.as_usize()].set_handler_fn(keyboard_interrupt_handler);
+    IDT[PICIndex::PrimaryATA.as_usize()].set_handler_fn(ata1_handler);
+    IDT[PICIndex::SecondaryATA.as_usize()].set_handler_fn(ata2_handler);
     IDT.load();
 }
 
@@ -73,4 +77,12 @@ extern "x86-interrupt" fn page_fault_handler(stack_frame: &mut InterruptStackFra
     println!("Error Code: {:?}", error_code);
     println!("{:#?}", stack_frame);
     panic!();
+}
+
+extern "x86-interrupt" fn ata1_handler(_stack_frame: &mut InterruptStackFrame) {
+    PICS.obtain().end_all_interrupts();
+}
+
+extern "x86-interrupt" fn ata2_handler(_stack_frame: &mut InterruptStackFrame) {
+    PICS.obtain().end_all_interrupts();
 }

@@ -87,4 +87,9 @@ impl ChainedPics {
             self.pics[0].end_of_interrupt();
         }
     }
+
+    pub fn end_all_interrupts(&mut self) {
+        self.pics[0].end_of_interrupt();
+        self.pics[1].end_of_interrupt();
+    }
 }
