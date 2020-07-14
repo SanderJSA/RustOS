@@ -11,6 +11,7 @@ extern crate x86_64 as x86_64_crate;
 pub mod driver;
 pub mod x86_64;
 pub mod memory;
+mod fs;
 mod tty;
 mod utils;
 

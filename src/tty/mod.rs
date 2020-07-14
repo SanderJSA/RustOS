@@ -2,6 +2,7 @@
 
 use crate::{println, print};
 use driver::ps2_keyboard::readline;
+use fs;
 
 /// Start and run tty
 pub fn run_tty() {
@@ -20,8 +21,12 @@ pub fn run_tty() {
         print!("> ");
         let input = readline();
 
-        match input {
-            "help\n" => println!("RustOS tty v1.0\nNo other commands are supported for now."),
+        match input.split_whitespace().nth(0).unwrap() {
+            "help" => println!("RustOS tty v1.0\nNo other commands are supported for now."),
+            "ls" => fs::ls(),
+            "touch" => {
+                let data: [u8; 0] = [];
+                fs::add_file(input.split_whitespace().nth(1).unwrap(), &data, 0)},
             _ => print!("Unknown command: {}", input),
         }
     }
