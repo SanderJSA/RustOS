@@ -25,21 +25,21 @@ extern "C" fn _start() -> ! {
     assert_eq!(buffer[510], 0x55);
     assert_eq!(buffer[511], 0xAA);
 
-    // Now write zeros in sector 0
+    // Now write ones in sector 0
     for i in 0..512 {
-        buffer[i] = 0;
+        buffer[i] = 1;
     }
     driver::ata::write_sectors(0, 1, &buffer);
 
-    // Now write ones in buffer to prevent false positives
+    // Now write zeros in buffer to prevent false positives
     for i in 0..512 {
         buffer[i] = 0;
     }
 
-    // Read first sector and check if all zero
+    // Read first sector and check if all ones
     driver::ata::read_sectors(0, 1, address);
     for i in 0..512 {
-        assert_eq!(buffer[i], 0);
+        assert_eq!(buffer[i], 1);
     }
 
     serial_println!("ata_read_write: [OK]");

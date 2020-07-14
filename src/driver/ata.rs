@@ -13,15 +13,16 @@ const STATUS_READY: u8 = 0x40;
 
 const READ_PIO: u8 = 0x20;
 const WRITE_PIO: u8 = 0x30;
+const CACHE_FLUSH: u8 = 0xE7;
 const IDENTIFY: u8 = 0xEC;
 
 const DATA_PORT: u16 = 0x1F0;
+const COMMAND_PORT: u16 = 0x1F7;
 const SECTOR_COUNT: u16 = 0x1F2;
 const LBA_LOW: u16 = 0x1F3;
 const LBA_MID: u16 = 0x1F4;
 const LBA_HIGH: u16 = 0x1F5;
 const DEVICE_SELECT: u16 = 0x1F6;
-const COMMAND_PORT: u16 = 0x1F7;
 
 /// Read n sectors starting at lba and writes contents in dst
 pub fn read_sectors(lba: usize, sectors: u8, mut dst: usize) {
@@ -51,10 +52,11 @@ pub fn write_sectors(lba: usize, sectors: u8, src: &[u8]) {
     for j in 0..sectors as usize {
         wait_ready();
 
-        for i in 0..256 {
-            port::outb(DATA_PORT, src[j * 512 + i])
+        for i in (0..512).step_by(2) {
+            port::outw(DATA_PORT, to_word(src, j * 512 + i))
         }
     }
+    port::outb(DATA_PORT, CACHE_FLUSH);
 }
 
 /// Returns number of sectors accessible by 28LBA
@@ -104,6 +106,15 @@ fn is_ready() -> bool {
     }
     let status = port::inb(COMMAND_PORT);
     status & STATUS_BUSY == 0 && status & STATUS_READY != 0
+}
+
+fn to_word(src: &[u8], index: usize) -> u16 {
+    if index + 1 < src.len() {
+        src[index] as u16 + ((src[index + 1] as u16) << 8)
+    }
+    else {
+        src[index] as u16
+    }
 }
 
 use crate::test;
