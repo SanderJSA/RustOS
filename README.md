@@ -14,9 +14,10 @@ A minimalist x86_64 kernel written in Rust with a custom bootloader with as few 
 ## Requirements
 
 - Qemu
-- Rust toolchain
+- Rust nightly toolchain
 - Llvm-tools-preview
 - Cargo-xbuild
+- Nasm
 - UNIX system
 
 ## Getting Started
