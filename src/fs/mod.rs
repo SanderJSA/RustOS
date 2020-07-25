@@ -109,15 +109,20 @@ pub fn add_file(name: &str, data: &[u8], size: usize) {
     }
 
     // Write to disk
-    ata::write_sectors(addr, 1, unsafe { any_as_u8_slice(&metadata) });
+    ata::write_sectors(addr, 1, any_as_u8_slice(&metadata));
+
     if size > 0 {
         ata::write_sectors(addr + 512, ((size + 511) / 512) as u8, data);
     }
 }
 
-unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
-    slice::from_raw_parts(
-        (p as *const T) as *const u8,
-        mem::size_of::<T>(),
-    )
+fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
+    unsafe {
+        // *T points to valid memory
+        // size_of<T> guarantees our slice only contains T
+        slice::from_raw_parts(
+            (p as *const T) as *const u8,
+            mem::size_of::<T>(),
+        )
+    }
 }

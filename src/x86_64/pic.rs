@@ -16,7 +16,10 @@ impl Pic {
     }
 
     fn end_of_interrupt(&self) {
-        outb(self.command_port, END_OF_INTERRUPT);
+        unsafe {
+            // Safe as long as PIC is initialized before interrupts are enabled
+            outb(self.command_port, END_OF_INTERRUPT);
+        }
     }
 }
 
@@ -42,10 +45,10 @@ impl ChainedPics {
         }
     }
 
-    pub fn initialize(&mut self) {
+    pub unsafe fn initialize(&mut self) {
         let io_wait = || {outb(0x80, 0)};
 
-        // Get PIC's masks
+        // Get PIC masks
         let mask_pic1 = inb(self.pics[0].data_port);
         let mask_pic2 = inb(self.pics[1].data_port);
 
@@ -70,7 +73,7 @@ impl ChainedPics {
         outb(self.pics[1].data_port, MODE_8086);
         io_wait();
 
-
+        // Restore masks
         outb(self.pics[0].data_port, mask_pic1);
         outb(self.pics[1].data_port, mask_pic2);
     }

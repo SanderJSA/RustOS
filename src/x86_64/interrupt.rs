@@ -6,6 +6,8 @@ use driver::ps2_keyboard;
 use utils::lazy_static::LazyStatic;
 use crate::println;
 
+const KEYBOARD_PORT: u16 = 0x60;
+
 pub const PIC_1_OFFSET: u8 = 32;
 pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
 
@@ -14,7 +16,10 @@ pub static PICS: LazyStatic<ChainedPics> =
     LazyStatic::new(|| ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET));
 
 pub fn init_pics() {
-    PICS.obtain().initialize();
+    unsafe {
+        // Both PIC are created with valid offsets
+        PICS.obtain().initialize();
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -61,7 +66,10 @@ extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: &mut InterruptSt
 }
 
 extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: &mut InterruptStackFrame) {
-    let scan_code: u8 = port::inb(0x60);
+    let scan_code: u8 = unsafe {
+        // KEYBOARD_PORT exists
+        port::inb(KEYBOARD_PORT)
+    };
     ps2_keyboard::update_stdin(scan_code);
     PICS.obtain().notify_end_of_interrupt(PICIndex::Keyboard.as_u8());
 }
@@ -69,6 +77,7 @@ extern "x86-interrupt" fn page_fault_handler(stack_frame: &mut InterruptStackFra
                                              error_code: PageFaultErrorCode) {
     let address: usize;
     unsafe {
+        // Will always return address of invalid_access
         llvm_asm!("mov %cr2, %rax" : "={rax}"(address) ::: "volatile");
     }
 

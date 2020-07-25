@@ -3,8 +3,14 @@ use core::fmt::Write;
 use utils::lazy_static::LazyStatic;
 use port::{outb, inb};
 
+const COM1: u16 = 0x3F8;
+
 static WRITER : LazyStatic<Serial> =
-    LazyStatic::new(|| Serial::new(0x3F8));
+    LazyStatic::new(|| {
+        unsafe {
+            // COM1 is a valid port
+            Serial::new(COM1)
+        }});
 
 struct Serial {
     port: u16,
@@ -12,7 +18,7 @@ struct Serial {
 
 impl Serial {
     #[allow(dead_code)]
-    pub fn new(port: u16) -> Serial {
+    pub unsafe fn new(port: u16) -> Serial {
         outb(port + 1, 0x00);    // Disable all interrupts
         outb(port + 3, 0x80);    // Enable DLAB (set baud rate divisor)
         outb(port + 0, 0x03);    // Set divisor to 3 (lo byte) 38400 baud
@@ -24,13 +30,19 @@ impl Serial {
     }
 
     fn write_buf_empty(&self) -> bool {
-        inb(self.port + 5) & 0x20 == 0
+        unsafe {
+            // Serial has been initialized, so this is safe
+            inb(self.port + 5) & 0x20 == 0
+        }
     }
 
     pub fn write_byte(&self, char: u8) {
         while self.write_buf_empty() {}
 
-        outb(self.port, char)
+        unsafe {
+            // Serial has been initialized, so this is safe
+            outb(self.port, char)
+        }
     }
 }
 
