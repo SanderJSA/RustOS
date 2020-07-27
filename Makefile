@@ -19,7 +19,8 @@ SRC = $(shell find src -name *.rs)
 #
 
 run: $(IMAGE)
-	qemu-system-x86_64 -drive file=$(IMAGE),format=raw -boot c
+	qemu-system-x86_64 -drive file=$(IMAGE),format=raw -boot c \
+	-device isa-debug-exit,iobase=0xf4,iosize=0x04
 
 # Create image with bootloader on first sector and kernel on the first sector onwards
 $(IMAGE): $(BUILD_DIR)/bootloader.bin $(BUILD_DIR)/kernel.bin
