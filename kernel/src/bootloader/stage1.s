@@ -43,8 +43,8 @@ A20Enabled:
 # Load kernel
 #=============#
 
-    lea eax, _stage2_size    # Add size of stage2 botloader and kernel
-    lea ebx, _kernel_size    #
+    lea eax, [_stage2_size]  # Add size of stage2 botloader and kernel
+    lea ebx, [_kernel_size]  #
     add ebx, eax
     shr ebx, 9               # Determine number of sectors to load
 
