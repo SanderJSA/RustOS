@@ -16,6 +16,7 @@ SECTIONS {
     }
     _stage2_end = .;
     _stage2_size = _stage2_end - _stage2_start;
+    _stage2_sectors = _stage2_size >> 9;
 
     . = 0x100000;
 
@@ -42,6 +43,7 @@ SECTIONS {
     }
     . = ALIGN(512);
     _kernel_size = . - _kernel_start;
+    _kernel_sectors = _kernel_size >> 9;
 
     /DISCARD/ :
     {

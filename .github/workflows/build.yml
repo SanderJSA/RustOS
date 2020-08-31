@@ -35,7 +35,7 @@ jobs:
       run: cargo build -p kernel_runner --release
 
     - name: Check for warnings
-      run: cargo xbuild --release --verbose
+      run: cargo xbuild --verbose
       env:
         RUSTFLAGS: -D warnings
 
