@@ -3,10 +3,10 @@ pub mod frame_allocator;
 
 pub const PAGE_SIZE: usize = 4096;
 
-#[allow(unused_imports)]
-use x86_64::paging::tables::{self, EntryFlag};
 use self::frame_allocator::FrameAllocator;
 use utils::lazy_static::LazyStatic;
+#[allow(unused_imports)]
+use x86_64::paging::tables::{self, EntryFlag};
 
 static ALLOCATOR: LazyStatic<FrameAllocator> =
     LazyStatic::new(FrameAllocator::new);

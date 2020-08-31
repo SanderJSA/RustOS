@@ -2,7 +2,7 @@ use core::fmt;
 use core::fmt::Write;
 use utils::lazy_static::LazyStatic;
 
-pub static WRITER : LazyStatic<Writer> = LazyStatic::new(Writer::new);
+pub static WRITER: LazyStatic<Writer> = LazyStatic::new(Writer::new);
 
 const BUFFER_HEIGHT: usize = 25;
 const BUFFER_WIDTH: usize = 80;
@@ -25,7 +25,7 @@ pub enum Color {
     LightRed = 12,
     Pink = 13,
     Yellow = 14,
-    White = 15
+    White = 15,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -42,29 +42,30 @@ impl ColorCode {
 #[repr(C)]
 struct ScreenChar {
     char: u8,
-    color_code: ColorCode
+    color_code: ColorCode,
 }
 
 #[repr(transparent)]
 struct Buffer {
-    chars: [[ScreenChar; BUFFER_WIDTH]; BUFFER_HEIGHT]
+    chars: [[ScreenChar; BUFFER_WIDTH]; BUFFER_HEIGHT],
 }
 
 pub struct Writer {
     col_pos: usize,
     color_code: ColorCode,
-    buffer: &'static mut Buffer
+    buffer: &'static mut Buffer,
 }
+
 impl Writer {
     pub fn new() -> Writer {
         Writer {
-           col_pos: 0,
-           color_code: ColorCode::new(Color::White, Color::Black),
-           buffer: unsafe { &mut *(0xb8000 as *mut Buffer) }
-       }
+            col_pos: 0,
+            color_code: ColorCode::new(Color::White, Color::Black),
+            buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
+        }
     }
 
-    pub fn write_byte(&mut self, byte: u8){
+    pub fn write_byte(&mut self, byte: u8) {
         match byte {
             b'\n' => self.new_line(),
             byte => {
@@ -76,10 +77,12 @@ impl Writer {
                 let col = self.col_pos;
 
                 let color_code = self.color_code;
-                self.buffer.chars[row][col] = ScreenChar {char: byte, color_code};
+                self.buffer.chars[row][col] = ScreenChar {
+                    char: byte,
+                    color_code,
+                };
                 self.col_pos += 1;
             }
-
         }
     }
 
@@ -89,12 +92,14 @@ impl Writer {
                 self.buffer.chars[row - 1][col] = self.buffer.chars[row][col];
             }
         }
-        let blank = ScreenChar { char: b' ', color_code: self.color_code};
+        let blank = ScreenChar {
+            char: b' ',
+            color_code: self.color_code,
+        };
         for col in 0..BUFFER_WIDTH {
             self.buffer.chars[BUFFER_HEIGHT - 1][col] = blank;
         }
         self.col_pos = 0;
-
     }
 
     pub fn erase_byte(&mut self) {
@@ -104,7 +109,10 @@ impl Writer {
             let col = self.col_pos;
 
             let color_code = self.color_code;
-            self.buffer.chars[row][col] = ScreenChar { char: ' ' as u8, color_code };
+            self.buffer.chars[row][col] = ScreenChar {
+                char: ' ' as u8,
+                color_code,
+            };
         }
     }
 }

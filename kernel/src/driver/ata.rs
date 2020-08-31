@@ -162,8 +162,7 @@ fn read_drive_status() -> u8 {
 fn to_word(src: &[u8], index: usize) -> u16 {
     if index + 1 < src.len() {
         src[index] as u16 + ((src[index + 1] as u16) << 8)
-    }
-    else {
+    } else {
         src[index] as u16
     }
 }

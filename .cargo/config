@@ -1,5 +1,15 @@
-[build]
-target = "x86_64-RustOS.json"
+[kernel.build]
+target = "x86_64-RustOS.json" # Workspaces ignore targets for no valid reasons
 
 [target.x86_64-RustOS]
-runner = ["./test_runner.sh"]
+runner = ["target/release/kernel_runner"]
+
+[term]
+color = 'always'
+
+# Current workaround for workspaces being bugged
+[alias]
+xrun = "run -Z build-std=core,alloc --target x86_64-RustOS.json --release"
+xdebug = "run -Z build-std=core,alloc --target x86_64-RustOS.json"
+xtest = "test -Z build-std=core,alloc --target x86_64-RustOS.json"
+xbuild = "build -Z build-std=core,alloc --target x86_64-RustOS.json"

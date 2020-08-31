@@ -1,0 +1,24 @@
+[package]
+name = "kernel"
+version = "0.1.0"
+authors = ["Sander JSA <sanderjsa@hotmail.com>"]
+
+[dependencies]
+x86_64 = "0.10.2"
+rlibc = "1.0.0" # Needed because the build-std feature provides no way to enable the mem feature of compiler_builtins currently
+
+[[bin]]
+name = "kernel"
+test = false
+
+[[test]]
+name = "simple_boot"
+harness = false
+
+[[test]]
+name = "page_fault"
+harness = false
+
+[[test]]
+name = "ata_read_write"
+harness = false

@@ -1,6 +1,6 @@
-use memory::{PAGE_SIZE, frame::Frame};
-use x86_64::paging::memory_map;
 use core::cmp::max;
+use memory::{frame::Frame, PAGE_SIZE};
+use x86_64::paging::memory_map;
 
 pub const KERNEL_END: usize = 0x200000;
 
@@ -18,8 +18,10 @@ impl FrameAllocator {
             index += 1;
         }
 
-        let start_addr = max(memory_map::get_region(index).base_addr + PAGE_SIZE - 1,
-                                    KERNEL_END);
+        let start_addr = max(
+            memory_map::get_region(index).base_addr + PAGE_SIZE - 1,
+            KERNEL_END,
+        );
 
         FrameAllocator {
             cur_frame: Frame::from_address(start_addr),
@@ -43,7 +45,8 @@ impl FrameAllocator {
 
     /// sets the first frame to the start of the current region
     fn set_start_frame(&mut self) {
-        self.cur_frame = Frame::from_address(self.cur_region.base_addr + PAGE_SIZE - 1);
+        self.cur_frame =
+            Frame::from_address(self.cur_region.base_addr + PAGE_SIZE - 1);
     }
 
     /// Go to next region, returns false if not possible

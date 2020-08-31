@@ -1,27 +1,50 @@
-ENTRY(_start)
+ENTRY(bootloader_start)
 
 SECTIONS {
-    . = 0x100000;
+    . = 0x7C00;
+    _stack_end = .;
 
-    .kernel_start :
+    .stage1 :
     {
-        *(.kernel_start)
+        *(.stage1)
     }
 
+    _stage2_start = .;
+    .stage2 :
+    {
+        *(.stage2)
+    }
+    _stage2_end = .;
+    _stage2_size = _stage2_end - _stage2_start;
+
+    . = 0x100000;
+
+    _kernel_start = .;
+    .text :
+    {
+        *(.text)
+    }
     .rodata :
     {
         *(.rodata)
     }
-    .text :
+    .data.rel.ro :
     {
-        *(.text)
+        *(.data.rel.ro)
+    }
+    .got :
+    {
+        *(.got)
     }
     .data :
     {
         *(.data)
     }
-    .got :
+    . = ALIGN(512);
+    _kernel_size = . - _kernel_start;
+
+    /DISCARD/ :
     {
-        *(.got)
+        *(.comment)
     }
 }

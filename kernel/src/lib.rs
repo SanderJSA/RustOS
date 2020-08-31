@@ -1,25 +1,28 @@
 #![no_std]
 #![cfg_attr(test, no_main)]
 #![feature(llvm_asm)]
+#![feature(global_asm)]
 #![feature(abi_x86_interrupt)]
 #![feature(custom_test_frameworks)]
 #![test_runner(test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
+extern crate rlibc;
 extern crate x86_64 as x86_64_crate;
 
 pub mod driver;
-pub mod x86_64;
-pub mod memory;
 mod fs;
+pub mod memory;
 mod tty;
 mod utils;
+pub mod x86_64;
 
-#[cfg(test)]
-use core::panic::PanicInfo;
-use x86_64::*;
-pub use x86_64::{QemuExitCode, exit_qemu};
 pub use tty::run_tty;
+use x86_64::*;
+pub use x86_64::{exit_qemu, QemuExitCode};
+
+global_asm!(include_str!("bootloader/stage1.s"));
+global_asm!(include_str!("bootloader/stage2.s"));
 
 /// Initializes hardware
 pub fn init() {
@@ -36,8 +39,7 @@ pub fn init() {
 /// Unit test runner
 #[cfg(test)]
 #[no_mangle]
-#[link_section = ".kernel_start"]
-extern "C" fn _start() -> ! {
+pub extern "C" fn _start() -> ! {
     init();
     test_main();
     exit_qemu(QemuExitCode::Success)
@@ -50,6 +52,9 @@ fn test_runner(tests: &[&dyn Fn()]) {
         test();
     }
 }
+
+#[cfg(test)]
+use core::panic::PanicInfo;
 
 /// Panic Handler for unit test runner
 #[cfg(test)]

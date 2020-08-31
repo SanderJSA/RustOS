@@ -1,35 +1,36 @@
 ![](https://github.com/SanderJSA/RustOS/workflows/Build/badge.svg)
 # RustOS
 
-A minimalist x86_64 kernel written in Rust with a custom bootloader with as few dependencies as possible.
+A pure Rust and inline assembly x86_64 kernel with a custom bootloader with as few dependencies as possible.
 
 ## Features
 
-- A custom single stage bootloader that loads the kernel, enters protected mode, sets up paging and then enters long mode
-- A VGA and PS2 Keyboard driver
-- Support for interrupts
-- Support for page allocation
-- Support for tests executed on the target system
+- A custom two stage bootloader that loads the kernel, enters protected mode, sets up paging and then enters long mode
+- Interrupts
+- Page allocation
+- VGA driver
+- PS2 Keyboard driver
+- ATA driver
+- Support for unit and integration tests executed on the target system
 
 ## Requirements
 
+Can be compiled on any Operating System with the following dependencies:
 - Qemu
-- Rust nightly toolchain
-- Llvm-tools-preview
-- Cargo-xbuild
-- Nasm
-- UNIX system
+- Rust nightly ```rustup default nightly```
+- Llvm-tools-preview, rust-src ```rustup component add llvm-tools-preview rust-src```
 
 ## Getting Started
 
+This might be one of the easiest OS to get up and running
 ```
 git clone https://github.com/SanderJSA/RustOS.git
 cd RustOS
-make run
+cargo build -p kernel_runner --release
 ```
 
-`make run` Compiles and runs the OS on qemu  
-`make debug` Compiles, starts the emulator and attaches gdb to it  
+`cargo xrun` Compiles and runs the OS in release mode on qemu  
+`cargo xdebug` Compiles and runs the OS in debug mode on qemu  
 `cargo xtest` Runs unit and integration tests  
 
 ## Resources

@@ -4,12 +4,12 @@
 #![feature(custom_test_frameworks)]
 #![test_runner(crate::test_runner)]
 
-extern crate rust_os;
+extern crate kernel;
 
 use core::panic::PanicInfo;
-use rust_os::*;
+use kernel::*;
 use core::slice::from_raw_parts_mut;
-use rust_os::x86_64::paging::tables::EntryFlag;
+use kernel::x86_64::paging::tables::EntryFlag;
 
 #[no_mangle]
 #[link_section = ".kernel_start"]
