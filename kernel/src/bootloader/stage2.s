@@ -91,20 +91,21 @@ stage2 :
 
 .code64
 init_lm:
-    mov ax, 0                # Set up data segments
-    mov ds, ax               #
-    mov es, ax               #
-    mov fs, ax               #
-    mov gs, ax               #
-    mov ss, ax               #
+    mov ax, 0                   # Set up data segments
+    mov ds, ax                  #
+    mov es, ax                  #
+    mov fs, ax                  #
+    mov gs, ax                  #
+    mov ss, ax                  #
 
-    mov rbp, 0x90000         # Set up stack
-    mov rsp, rbp             #
+    mov rbp, 0x90000            # Set up stack
+    mov rsp, rbp                #
 
-    lea rsi, [_stage2_end]   # Move loaded kernel
-    lea rdi, [_kernel_start] # To _kernel_start
-    lea rcx, [_kernel_size]  # _kernel_size times
-    rep movsd                #
+    lea rsi, [_stage2_end]      # Move loaded kernel
+    lea rdi, [_kernel_start]    # To _kernel_start
+    lea rcx, [_kernel_sectors]  # _kernel_sector * 512 times
+    shl rcx, 9                  #
+    rep movsd                   #
 
     lea rax, [_start]
     call rax

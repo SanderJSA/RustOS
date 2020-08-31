@@ -160,7 +160,6 @@ readBlock:
 # 32bit GDT
 #===========#
 
-.code16
 GDT:
     gdt_null :
        .quad 0
