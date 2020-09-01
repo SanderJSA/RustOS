@@ -14,6 +14,7 @@ SECTIONS {
     {
         *(.stage2)
     }
+    . = ALIGN(512);
     _stage2_end = .;
     _stage2_sectors = (_stage2_end - _stage2_start) >> 9;
 
@@ -27,6 +28,7 @@ SECTIONS {
     .rodata :
     {
         *(.rodata)
+        *(.rodata*)
     }
     .data.rel.ro :
     {
@@ -39,9 +41,17 @@ SECTIONS {
     .data :
     {
         *(.data)
+        *(.data*)
+    }
+    .bss :
+    {
+        *(COMMON)
+        *(.bss)
     }
     . = ALIGN(512);
-    _kernel_sectors = (. - _kernel_start) >> 9;
+    _kernel_size = . - _kernel_start;
+    _kernel_sectors = _kernel_size >> 9;
+
 
     /DISCARD/ :
     {

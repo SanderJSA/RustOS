@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Sander JSA <sanderjsa@hotmail.com>"]
 
 [dependencies]
-x86_64 = "0.10.2"
+x86_64 = "0.11.4"
 rlibc = "1.0.0" # Needed because the build-std feature provides no way to enable the mem feature of compiler_builtins currently
 
 [[bin]]

@@ -45,24 +45,24 @@ A20Enabled:
 
     lea eax, [_stage2_sectors]  # Add sectors of stage2 bootloader and kernel
     lea ebx, [_kernel_sectors]  #
-    add ebx, eax
+    add ebx, eax                #
 
 readBlock:
-    lea si, [dap]            # Load DAP struct
-    mov ah, 0x42             # Use LBA addressing
-                             # dl starts off set to the correct device
-    int 0x13                 # Interrupt for low-level disk services
+    lea si, [dap]               # Load DAP struct
+    mov ah, 0x42                # Use LBA addressing
+                                # dl starts off set to the correct device
+    int 0x13                    # Interrupt for low-level disk services
 
-    mov ax, [dap_lba]        # Start at next sector
-    add ax, 1                #
-    mov [dap_lba], ax        #
+    mov eax, [dap_lba]          # Start at next sector
+    add eax, 1                  #
+    mov [dap_lba], eax          #
 
-    mov ax, [dap_buffer_seg] # Update buffer offset accordingly
-    add ax, 512 / 16         #
-    mov [dap_buffer_seg], ax #
+    mov eax, [dap_buffer_seg]   # Update buffer offset accordingly
+    add eax, 512 / 16           #
+    mov [dap_buffer_seg], eax   #
 
-    sub ebx, 1               # Continue if there are still blocks left to load
-    jnz readBlock            #
+    sub ebx, 1                  # Continue if there are still blocks left to load
+    jnz readBlock               #
 
 #================#
 # Get memory map
