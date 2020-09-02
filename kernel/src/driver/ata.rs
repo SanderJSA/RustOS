@@ -24,8 +24,9 @@ const IDENTIFY: u8 = 0xEC;
 const STATUS_BUSY: u8 = 0x80;
 const STATUS_READY: u8 = 0x40;
 
-/// Read n sectors starting at lba and writes contents in dst
-pub fn read_sectors(lba: usize, sectors: u8, mut dst: usize) {
+/// Read `sectors` sectors starting at `lba`
+/// and writes contents in `dst`
+pub fn read_sectors(lba: usize, sectors: u8, dst: &mut [u8]) {
     assert!(sectors > 0);
     set_up_drive(lba, sectors, ATA_MASTER);
     unsafe {
@@ -35,16 +36,19 @@ pub fn read_sectors(lba: usize, sectors: u8, mut dst: usize) {
         port::outb(COMMAND_PORT, READ_PIO);
     }
 
-    for _ in 0..sectors {
+    for sector in 0..sectors as usize {
         wait_drive_ready();
 
-        let buffer = dst as *mut u16;
-        for i in 0..256 {
+        for byte in (0..512).step_by(2) {
+            let pair;
             unsafe {
-                *buffer.offset(i) = port::inw(DATA_PORT);
+                // DATA_PORT is a valid port
+                // Drive has data data ready to be read
+                pair = port::inw(DATA_PORT);
             }
+            dst[sector * 512 + byte] = pair as u8;
+            dst[sector * 512 + byte + 1] = (pair >> 8) as u8;
         }
-        dst += 512;
     }
 }
 

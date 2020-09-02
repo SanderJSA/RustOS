@@ -1,6 +1,5 @@
 #![no_std]
 #![no_main]
-
 #![feature(custom_test_frameworks)]
 #![test_runner(crate::test_runner)]
 
@@ -8,8 +7,6 @@ extern crate kernel;
 
 use core::panic::PanicInfo;
 use kernel::*;
-use core::slice::from_raw_parts_mut;
-use kernel::x86_64::paging::tables::EntryFlag;
 
 #[no_mangle]
 #[link_section = ".kernel_start"]
@@ -17,33 +14,42 @@ extern "C" fn _start() -> ! {
     init();
 
     // Get ourselves a buffer to play around with
-    let address = memory::mmap(None, EntryFlag::Writable as u64);
-    let buffer = unsafe { from_raw_parts_mut(address as *mut u8, 4096) };
+    let mut buffer = [0u8; 2048];
 
     // Read 4 sectors and check if first contains bootloader
-    driver::ata::read_sectors(0, 4, address);
+    driver::ata::read_sectors(0, 4, &mut buffer);
     assert_eq!(buffer[510], 0x55);
     assert_eq!(buffer[511], 0xAA);
 
-    // Now write ones in sector 0
+    // Write ones in sector 0 and check
     for i in 0..512 {
         buffer[i] = 1;
     }
-    driver::ata::write_sectors(0, 1, &buffer);
+    write_and_check(&buffer, 0, 0);
 
-    // Now write zeros in buffer to prevent false positives
+    // Write i in sector 1 and check
     for i in 0..512 {
-        buffer[i] = 0;
+        buffer[i] = i as u8;
     }
+    write_and_check(&buffer, 1, 1);
 
-    // Read first sector and check if all ones
-    driver::ata::read_sectors(0, 1, address);
-    for i in 0..512 {
-        assert_eq!(buffer[i], 1);
-    }
 
     serial_println!("ata_read_write: [OK]");
     exit_qemu(QemuExitCode::Success)
+}
+
+fn write_and_check(expected: &[u8], start_sector: usize, default_value: u8) {
+    // Write buffer
+    driver::ata::write_sectors(start_sector, 1, &expected);
+
+    // Read what was written
+    let mut actual = [default_value; 512];
+    driver::ata::read_sectors(start_sector, 1, &mut actual);
+
+    // Check if both buffer are the same
+    for i in 0..512 {
+        assert_eq!(expected[i], actual[i]);
+    }
 }
 
 #[panic_handler]

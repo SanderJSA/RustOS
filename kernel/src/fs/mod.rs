@@ -1,9 +1,18 @@
 //! Implementation of a USTAR file system
 
+use core::{mem, slice, str};
 use driver::ata;
-use core::{str, mem, slice};
 
-const LBA_START: usize = (128000 + 512) / 512;
+extern "C" {
+    static _kernel_size: usize;
+}
+
+fn fs_start_lba() -> usize {
+    unsafe {
+        // Symbol is initialized by the linker
+        (&_kernel_size as *const _ as usize / 512) + 2
+    }
+}
 
 #[allow(dead_code)]
 #[repr(u8)]
@@ -40,7 +49,7 @@ struct Metadata {
 
 impl Metadata {
     fn empty() -> Metadata {
-        let ustar_indicator = ['u' as u8, 's' as u8, 't' as u8, 'a' as u8, 'r' as u8, 0];
+        let ustar_indicator = [b'u', b's', b't', b'a', b'r', 0];
         Metadata {
             name: [0; 100],
             permissions: 0,
@@ -68,10 +77,10 @@ impl Metadata {
 }
 
 pub fn ls() {
-    let mut addr = LBA_START;
+    let mut addr = fs_start_lba();
     loop {
         let mut metadata = Metadata::empty();
-        ata::read_sectors(addr, 1, (&mut metadata as *mut _) as usize);
+        ata::read_sectors(addr, 1, any_as_u8_slice_mut(&mut metadata));
 
         if !metadata.is_file() {
             return;
@@ -79,7 +88,7 @@ pub fn ls() {
 
         // Remove nullbytes from name
         let mut i = 0;
-        while i < 100 && metadata.name[i] != '\0' as u8 {
+        while i < 100 && metadata.name[i] != b'\0' {
             i += 1;
         }
         let name = &metadata.name[0..i];
@@ -98,12 +107,12 @@ pub fn add_file(name: &str, data: &[u8], size: usize) {
     }
 
     // Find free spot
-    let mut addr = LBA_START;
+    let mut addr = fs_start_lba();
     loop {
         let mut tmp = Metadata::empty();
-        ata::read_sectors(addr, 1, (&mut tmp as *mut _) as usize);
+        ata::read_sectors(addr, 1, any_as_u8_slice_mut(&mut tmp));
         if !tmp.is_file() {
-            break
+            break;
         }
         addr += ((tmp.size + 511) / 512) + 1;
     }
@@ -116,13 +125,20 @@ pub fn add_file(name: &str, data: &[u8], size: usize) {
     }
 }
 
+/// A helper function that translate a given input to a &[u8]
 fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
     unsafe {
         // *T points to valid memory
         // size_of<T> guarantees our slice only contains T
-        slice::from_raw_parts(
-            (p as *const T) as *const u8,
-            mem::size_of::<T>(),
-        )
+        slice::from_raw_parts((p as *const T) as *const u8, mem::size_of::<T>())
+    }
+}
+
+/// A helper function that translate a given input to a &mut [u8]
+fn any_as_u8_slice_mut<T: Sized>(p: &mut T) -> &mut [u8] {
+    unsafe {
+        // *T points to valid memory
+        // size_of<T> guarantees our slice only contains T
+        slice::from_raw_parts_mut((p as *mut T) as *mut u8, mem::size_of::<T>())
     }
 }
