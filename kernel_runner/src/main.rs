@@ -6,6 +6,7 @@ use std::process::{exit, Command};
 use std::{env, process};
 
 const SECTOR_SIZE: usize = 512;
+const FS_SPACE: &[u8] = &[0; 100 * 512];
 const QEMU_SUCCESS: i32 = 33;
 
 
@@ -72,6 +73,10 @@ impl BuildConfig {
         image_file.write_all(&bootloader).unwrap();
         image_file.write_all(&kernel).unwrap();
         pad_to_sector(&mut image_file);
+
+        // Add space for files to be written to
+        println!("{}", image_file.seek(SeekFrom::Current(0)).unwrap());
+        image_file.write_all(FS_SPACE).expect("Could not add space for FS");
     }
 
     fn run_qemu(&self) -> i32 {
