@@ -12,8 +12,11 @@ pub unsafe extern "C" fn memset(dest: *mut u8, c: i32, n: usize) -> *mut u8 {
 
 #[no_mangle]
 pub unsafe extern "C" fn memcpy(dest: *mut u8, src: *const u8, n: usize) -> *mut u8 {
-    for i in 0..n {
+    // We cannot use any iterators as they call memcpy in unoptimized builds
+    let mut i = 0;
+    while i < n {
         *dest.add(i) = *src.add(i);
+        i += 1;
     }
     dest
 }
@@ -21,8 +24,10 @@ pub unsafe extern "C" fn memcpy(dest: *mut u8, src: *const u8, n: usize) -> *mut
 #[no_mangle]
 pub unsafe extern "C" fn memmove(dest: *mut u8, src: *const u8, n: usize) -> *mut u8 {
     if src < dest {
-        for i in (0..n).rev() {
+        let mut i = 0;
+        while i < n {
             *dest.add(i) = *src.add(i);
+            i += 1;
         }
         dest
     } else {
