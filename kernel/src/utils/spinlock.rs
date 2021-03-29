@@ -9,11 +9,17 @@ impl Spinlock {
 
     #[allow(dead_code)]
     pub fn once(&self) -> bool {
-        !self.0.compare_and_swap(false, true, Ordering::SeqCst)
+        self.0
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .is_ok()
     }
 
     pub fn obtain(&self) {
-        while self.0.compare_and_swap(false, true, Ordering::SeqCst) {}
+        while self
+            .0
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .is_err()
+        {}
     }
 
     pub fn release(&self) {
