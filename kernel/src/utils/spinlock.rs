@@ -21,18 +21,22 @@ impl Spinlock {
     }
 }
 
-use crate::test;
+#[cfg(test)]
+mod test {
+    use super::*;
 
-test!(call_once {
-    let mut result = false;
-    let lock = Spinlock::new();
+    #[test_case]
+    fn call_once() {
+        let mut result = false;
+        let lock = Spinlock::new();
 
-    if lock.once() {
-        result = true;
+        if lock.once() {
+            result = true;
+        }
+        if lock.once() {
+            assert!(false);
+        }
+
+        assert!(result);
     }
-    if lock.once() {
-        assert!(false);
-    }
-
-    assert!(result);
-});
+}

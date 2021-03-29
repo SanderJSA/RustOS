@@ -1,4 +1,4 @@
-use x86_64::port::{inb, outb};
+use super::port::{inb, outb};
 
 const PIC_INIT: u8 = 0x11;
 const END_OF_INTERRUPT: u8 = 0x20;
@@ -41,12 +41,12 @@ impl ChainedPics {
                     command_port: 0xA0,
                     data_port: 0xA1,
                 },
-            ]
+            ],
         }
     }
 
     pub unsafe fn initialize(&mut self) {
-        let io_wait = || {outb(0x80, 0)};
+        let io_wait = || outb(0x80, 0);
 
         // Get PIC masks
         let mask_pic1 = inb(self.pics[0].data_port);

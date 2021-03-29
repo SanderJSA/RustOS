@@ -1,9 +1,7 @@
 //! This module implements a tty
 
-use crate::{print, println};
-use driver::ps2_keyboard::readline;
-use QemuExitCode;
-use {exit_qemu, fs};
+use crate::driver::ps2_keyboard::readline;
+use crate::{exit_qemu, file_system, print, println, QemuExitCode};
 
 /// Start and run tty
 pub fn run_tty() {
@@ -28,10 +26,10 @@ pub fn run_tty() {
 
         match input.split_whitespace().nth(0).unwrap() {
             "poweroff" => exit_qemu(QemuExitCode::Success),
-            "ls" => fs::ls(),
+            "ls" => file_system::ls(),
             "touch" => {
                 let data: [u8; 0] = [];
-                fs::add_file(input.split_whitespace().nth(1).unwrap(), &data, 0)
+                file_system::add_file(input.split_whitespace().nth(1).unwrap(), &data, 0)
             }
             "help" => println!(
                 "RustOS tty v1.0\n\

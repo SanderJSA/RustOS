@@ -2,7 +2,7 @@
 //! Read, write and get stoage space on master drive
 //! Limited to 28bit LBA
 
-use x86_64::port;
+use super::port;
 
 const ATA_MASTER: u8 = 0xE0;
 #[allow(dead_code)]
@@ -171,8 +171,12 @@ fn to_word(src: &[u8], index: usize) -> u16 {
     }
 }
 
-use crate::test;
+#[cfg(test)]
+mod test {
+    use super::*;
 
-test!(non_empty_ata {
-    assert!(get_storage() != 0);
-});
+    #[test_case]
+    fn non_empty_ata() {
+        assert!(get_storage() != 0);
+    }
+}

@@ -1,6 +1,6 @@
+use crate::arch::paging::memory_map;
+use crate::memory_manager::{frame::Frame, PAGE_SIZE};
 use core::cmp::max;
-use memory::{frame::Frame, PAGE_SIZE};
-use x86_64::paging::memory_map;
 
 pub const KERNEL_END: usize = 0x200000;
 
@@ -45,8 +45,7 @@ impl FrameAllocator {
 
     /// sets the first frame to the start of the current region
     fn set_start_frame(&mut self) {
-        self.cur_frame =
-            Frame::from_address(self.cur_region.base_addr + PAGE_SIZE - 1);
+        self.cur_frame = Frame::from_address(self.cur_region.base_addr + PAGE_SIZE - 1);
     }
 
     /// Go to next region, returns false if not possible

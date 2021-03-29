@@ -1,16 +1,16 @@
+use super::port::{inb, outb};
+use crate::utils::lazy_static::LazyStatic;
 use core::fmt;
 use core::fmt::Write;
-use utils::lazy_static::LazyStatic;
-use port::{outb, inb};
 
 const COM1: u16 = 0x3F8;
 
-static WRITER : LazyStatic<Serial> =
-    LazyStatic::new(|| {
-        unsafe {
-            // COM1 is a valid port
-            Serial::new(COM1)
-        }});
+static WRITER: LazyStatic<Serial> = LazyStatic::new(|| {
+    unsafe {
+        // COM1 is a valid port
+        Serial::new(COM1)
+    }
+});
 
 struct Serial {
     port: u16,
@@ -19,13 +19,13 @@ struct Serial {
 impl Serial {
     #[allow(dead_code)]
     pub unsafe fn new(port: u16) -> Serial {
-        outb(port + 1, 0x00);    // Disable all interrupts
-        outb(port + 3, 0x80);    // Enable DLAB (set baud rate divisor)
-        outb(port + 0, 0x03);    // Set divisor to 3 (lo byte) 38400 baud
-        outb(port + 1, 0x00);    //                  (hi byte)
-        outb(port + 3, 0x03);    // 8 bits, no parity, one stop bit
-        outb(port + 2, 0xC7);    // Enable FIFO, clear them, with 14-byte threshold
-        outb(port + 4, 0x0B);    // IRQs enabled, RTS/DSR set
+        outb(port + 1, 0x00); // Disable all interrupts
+        outb(port + 3, 0x80); // Enable DLAB (set baud rate divisor)
+        outb(port + 0, 0x03); // Set divisor to 3 (lo byte) 38400 baud
+        outb(port + 1, 0x00); //                  (hi byte)
+        outb(port + 3, 0x03); // 8 bits, no parity, one stop bit
+        outb(port + 2, 0xC7); // Enable FIFO, clear them, with 14-byte threshold
+        outb(port + 4, 0x0B); // IRQs enabled, RTS/DSR set
         Serial { port }
     }
 
@@ -61,7 +61,7 @@ pub fn _print(args: fmt::Arguments) {
 
 #[macro_export]
 macro_rules! serial_print {
-    ($($arg:tt)*) => ($crate::x86_64::serial::_print(format_args!($($arg)*)));
+    ($($arg:tt)*) => ($crate::serial::_print(format_args!($($arg)*)));
 }
 
 #[macro_export]

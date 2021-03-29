@@ -1,6 +1,5 @@
-use core::ptr;
-use core::str;
-use driver::vga_driver::WRITER;
+use super::vga_driver::WRITER;
+use core::{ptr, str};
 
 const BUFFER_SIZE: usize = 2048;
 
@@ -37,9 +36,7 @@ impl Buffer {
     }
 
     fn wait_for_more(&mut self, cur: usize) -> bool {
-        unsafe {
-            cur >= ptr::read_volatile(&self.end)
-        }
+        unsafe { cur >= ptr::read_volatile(&self.end) }
     }
 
     fn get_line(&mut self) -> &str {
@@ -52,7 +49,7 @@ impl Buffer {
             }
 
             if self.data[cur] == '\n' as u8 {
-                let string = &self.data[self.start .. cur + 1];
+                let string = &self.data[self.start..cur + 1];
                 self.start = cur + 1;
                 return str::from_utf8(string).unwrap();
             }
@@ -63,10 +60,8 @@ impl Buffer {
 
 static mut STDIN_BUFFER: Buffer = Buffer::new();
 
-pub fn readline() -> &'static str{
-    unsafe {
-        STDIN_BUFFER.get_line()
-    }
+pub fn readline() -> &'static str {
+    unsafe { STDIN_BUFFER.get_line() }
 }
 
 pub fn update_stdin(code: u8) {
@@ -138,6 +133,6 @@ fn parse_normal_char(code: u8) -> Option<char> {
 
         0x39 => Some(' '),
 
-        _ => None
+        _ => None,
     }
 }

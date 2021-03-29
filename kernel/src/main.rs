@@ -6,11 +6,9 @@ extern crate kernel;
 use core::panic::PanicInfo;
 use kernel::*;
 
-
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
     init();
-
 
     run_tty();
 

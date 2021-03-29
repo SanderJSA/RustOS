@@ -17,7 +17,7 @@ extern "C" fn _start() -> ! {
     let mut buffer = [0u8; 2048];
 
     // Read 4 sectors and check if first contains bootloader
-    driver::ata::read_sectors(0, 4, &mut buffer);
+    ata::read_sectors(0, 4, &mut buffer);
     assert_eq!(buffer[510], 0x55);
     assert_eq!(buffer[511], 0xAA);
 
@@ -33,18 +33,17 @@ extern "C" fn _start() -> ! {
     }
     write_and_check(&buffer, 1, 1);
 
-
     serial_println!("ata_read_write: [OK]");
     exit_qemu(QemuExitCode::Success)
 }
 
 fn write_and_check(expected: &[u8], start_sector: usize, default_value: u8) {
     // Write buffer
-    driver::ata::write_sectors(start_sector, 1, &expected);
+    ata::write_sectors(start_sector, 1, &expected);
 
     // Read what was written
     let mut actual = [default_value; 512];
-    driver::ata::read_sectors(start_sector, 1, &mut actual);
+    ata::read_sectors(start_sector, 1, &mut actual);
 
     // Check if both buffer are the same
     for i in 0..512 {

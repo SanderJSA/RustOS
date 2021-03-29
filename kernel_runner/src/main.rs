@@ -9,7 +9,6 @@ const SECTOR_SIZE: usize = 512;
 const FS_SPACE: &[u8] = &[0; 100 * 512];
 const QEMU_SUCCESS: i32 = 33;
 
-
 fn main() {
     let kernel = env::args().nth(1).expect("Not enough arguments");
     let config = BuildConfig::new(kernel);
@@ -36,7 +35,12 @@ impl BuildConfig {
         let image = kernel.clone().add(".img");
         let is_test = Path::new(&kernel).parent().unwrap().ends_with("deps");
 
-        BuildConfig { kernel, kernel_bin, image, is_test }
+        BuildConfig {
+            kernel,
+            kernel_bin,
+            image,
+            is_test,
+        }
     }
 
     fn create_kernel_bin(&self, objcopy: &PathBuf) {
@@ -54,8 +58,7 @@ impl BuildConfig {
     }
 
     fn create_image(&self) {
-        let mut image_file =
-            File::create(&self.image).expect("Could not create image file");
+        let mut image_file = File::create(&self.image).expect("Could not create image file");
 
         let mut kernel_file = File::open(&self.kernel_bin).unwrap();
 
@@ -68,7 +71,9 @@ impl BuildConfig {
         kernel_file
             .seek(SeekFrom::Start(0x100000 - 0x7C00))
             .expect("Could not find kernel");
-        kernel_file.read_to_end(&mut kernel).expect("Could not load kernel");
+        kernel_file
+            .read_to_end(&mut kernel)
+            .expect("Could not load kernel");
 
         image_file.write_all(&bootloader).unwrap();
         image_file.write_all(&kernel).unwrap();
@@ -76,7 +81,9 @@ impl BuildConfig {
 
         // Add space for files to be written to
         println!("{}", image_file.seek(SeekFrom::Current(0)).unwrap());
-        image_file.write_all(FS_SPACE).expect("Could not add space for FS");
+        image_file
+            .write_all(FS_SPACE)
+            .expect("Could not add space for FS");
     }
 
     fn run_qemu(&self) -> i32 {
@@ -106,9 +113,7 @@ fn objcopy_path() -> PathBuf {
         Err(err) => {
             eprintln!("llvm-tools: {:?}", err);
             eprintln!("llvm-tools-preview might be missing");
-            eprintln!(
-                "install it using `rustup component add llvm-tools-preview`"
-            );
+            eprintln!("install it using `rustup component add llvm-tools-preview`");
             process::exit(1);
         }
     };

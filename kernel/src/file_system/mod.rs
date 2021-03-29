@@ -1,7 +1,7 @@
 //! Implementation of a USTAR file system
 
+use crate::arch::ata;
 use core::{mem, slice, str};
-use driver::ata;
 
 extern "C" {
     static _kernel_size: usize;

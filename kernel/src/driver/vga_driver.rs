@@ -1,6 +1,6 @@
+use crate::utils::lazy_static::LazyStatic;
 use core::fmt;
 use core::fmt::Write;
-use utils::lazy_static::LazyStatic;
 
 pub static WRITER: LazyStatic<Writer> = LazyStatic::new(Writer::new);
 
@@ -146,25 +146,30 @@ macro_rules! println {
     ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
 }
 
-use crate::test;
+#[cfg(test)]
+mod test {
+    use super::*;
 
-test! (write_byte {
-    let mut writer = Writer::new();
+    #[test_case]
+    fn write_byte() {
+        let mut writer = Writer::new();
 
-    writer.write_byte('R' as u8);
+        writer.write_byte('R' as u8);
 
-    let screen_char = writer.buffer.chars[BUFFER_HEIGHT - 1][0];
-    assert!(screen_char.char == 'R' as u8);
-});
-
-test! (write_string {
-    let mut writer = Writer::new();
-
-    writer.write_str("\nRust is awesome\n").unwrap();
-
-    let line = writer.buffer.chars[BUFFER_HEIGHT - 2];
-    let expected = "Rust is awesome".as_bytes();
-    for i in 1..expected.len() {
-        assert!(line[i].char == expected[i]);
+        let screen_char = writer.buffer.chars[BUFFER_HEIGHT - 1][0];
+        assert!(screen_char.char == 'R' as u8);
     }
-});
+
+    #[test_case]
+    fn write_string() {
+        let mut writer = Writer::new();
+
+        writer.write_str("\nRust is awesome\n").unwrap();
+
+        let line = writer.buffer.chars[BUFFER_HEIGHT - 2];
+        let expected = "Rust is awesome".as_bytes();
+        for i in 1..expected.len() {
+            assert!(line[i].char == expected[i]);
+        }
+    }
+}

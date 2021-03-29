@@ -1,10 +1,11 @@
-use x86_64_crate::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
-use x86_64::port;
-use x86_64::gdt;
-use x86_64::pic::ChainedPics;
-use driver::ps2_keyboard;
-use utils::lazy_static::LazyStatic;
+use super::pic::ChainedPics;
+use super::{gdt, port};
+use crate::driver::ps2_keyboard;
 use crate::println;
+use crate::utils::lazy_static::LazyStatic;
+use x86_64_crate::structures::idt::{
+    InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode,
+};
 
 const KEYBOARD_PORT: u16 = 0x60;
 
@@ -35,6 +36,7 @@ impl PICIndex {
     fn as_u8(self) -> u8 {
         self as u8
     }
+
     fn as_usize(self) -> usize {
         (self.as_u8()) as usize
     }
@@ -43,7 +45,8 @@ impl PICIndex {
 pub unsafe fn init_idt() {
     IDT.breakpoint.set_handler_fn(breakpoint_handler);
     IDT.page_fault.set_handler_fn(page_fault_handler);
-    IDT.double_fault.set_handler_fn(double_fault_handler)
+    IDT.double_fault
+        .set_handler_fn(double_fault_handler)
         .set_stack_index(gdt::DOUBLE_FAULT_IST_INDEX);
     IDT[PICIndex::Timer.as_usize()].set_handler_fn(timer_interrupt_handler);
     IDT[PICIndex::Keyboard.as_usize()].set_handler_fn(keyboard_interrupt_handler);
@@ -52,9 +55,14 @@ pub unsafe fn init_idt() {
     IDT.load();
 }
 
-extern "x86-interrupt" fn
-    double_fault_handler(stack_frame: &mut InterruptStackFrame, _error_code: u64) -> ! {
-    panic!("EXCEPTION: DOUBLE FAULT ERR:{}\n{:#?}", _error_code, stack_frame);
+extern "x86-interrupt" fn double_fault_handler(
+    stack_frame: &mut InterruptStackFrame,
+    _error_code: u64,
+) -> ! {
+    panic!(
+        "EXCEPTION: DOUBLE FAULT ERR:{}\n{:#?}",
+        _error_code, stack_frame
+    );
 }
 
 extern "x86-interrupt" fn breakpoint_handler(stack_frame: &mut InterruptStackFrame) {
@@ -62,7 +70,8 @@ extern "x86-interrupt" fn breakpoint_handler(stack_frame: &mut InterruptStackFra
 }
 
 extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: &mut InterruptStackFrame) {
-    PICS.obtain().notify_end_of_interrupt(PICIndex::Timer.as_u8());
+    PICS.obtain()
+        .notify_end_of_interrupt(PICIndex::Timer.as_u8());
 }
 
 extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: &mut InterruptStackFrame) {
@@ -71,10 +80,13 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: &mut Interrup
         port::inb(KEYBOARD_PORT)
     };
     ps2_keyboard::update_stdin(scan_code);
-    PICS.obtain().notify_end_of_interrupt(PICIndex::Keyboard.as_u8());
+    PICS.obtain()
+        .notify_end_of_interrupt(PICIndex::Keyboard.as_u8());
 }
-extern "x86-interrupt" fn page_fault_handler(stack_frame: &mut InterruptStackFrame,
-                                             error_code: PageFaultErrorCode) {
+extern "x86-interrupt" fn page_fault_handler(
+    stack_frame: &mut InterruptStackFrame,
+    error_code: PageFaultErrorCode,
+) {
     let address: usize;
     unsafe {
         // Will always return address of invalid_access

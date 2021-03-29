@@ -1,10 +1,11 @@
 //! This module sets up interfaces to communicate with hardware
 
+pub mod ata;
 pub mod gdt;
 pub mod interrupt;
+pub mod paging;
 pub mod pic;
 pub mod port;
-pub mod paging;
 pub mod serial;
 
 #[allow(dead_code)]
