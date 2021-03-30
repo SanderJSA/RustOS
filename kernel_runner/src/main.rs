@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use std::process::{exit, Command};
 use std::{env, process};
 
+const GDB: bool = false;
 const SECTOR_SIZE: usize = 512;
 const FS_SPACE: &[u8] = &[0; 100 * 512];
 const QEMU_SUCCESS: i32 = 33;
@@ -80,7 +81,6 @@ impl BuildConfig {
         pad_to_sector(&mut image_file);
 
         // Add space for files to be written to
-        println!("{}", image_file.seek(SeekFrom::Current(0)).unwrap());
         image_file
             .write_all(FS_SPACE)
             .expect("Could not add space for FS");
@@ -98,6 +98,9 @@ impl BuildConfig {
             .arg("stdio");
         if self.is_test {
             cmd.arg("-display").arg("none");
+        }
+        if GDB {
+            cmd.arg("-s").arg("-S");
         }
 
         cmd.status()
