@@ -32,15 +32,16 @@ impl FrameAllocator {
 
     /// Returns a valid Page sized frame
     pub fn allocate_frame(&mut self) -> Option<Frame> {
-        self.cur_frame.base_addr += PAGE_SIZE;
-        if self.cur_frame.base_addr > self.cur_region.end() {
+        if self.cur_frame.base_addr + PAGE_SIZE > self.cur_region.end() {
             if !self.next_region() {
                 return None;
             }
             self.set_start_frame();
         }
+        let frame = self.cur_frame;
 
-        Some(self.cur_frame)
+        self.cur_frame.base_addr += PAGE_SIZE;
+        Some(frame)
     }
 
     /// sets the first frame to the start of the current region
