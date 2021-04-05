@@ -1,4 +1,6 @@
 mod slab;
+use crate::arch::paging::tables::EntryFlag;
+use crate::memory_manager::{mmap, munmap, PAGE_SIZE};
 use crate::utils::lazy_static::LazyStatic;
 use core::alloc::{GlobalAlloc, Layout};
 use core::ptr::null_mut;
@@ -42,6 +44,8 @@ impl Allocator {
             self.slab_256.allocate()
         } else if layout.size() <= 512 && layout.align() <= 512 {
             self.slab_512.allocate()
+        } else if layout.size() <= PAGE_SIZE && layout.align() <= PAGE_SIZE {
+            mmap(None, EntryFlag::Writable as u64)
         } else {
             null_mut()
         }
@@ -62,6 +66,8 @@ impl Allocator {
             self.slab_256.deallocate(ptr);
         } else if layout.size() <= 512 && layout.align() <= 512 {
             self.slab_512.deallocate(ptr);
+        } else {
+            munmap(ptr, PAGE_SIZE);
         }
     }
 }
@@ -83,13 +89,13 @@ mod test {
     use crate::memory_manager::PAGE_SIZE;
     use core::alloc::Layout;
 
-    //#[test_case]
+    #[test_case]
     fn page_alloc() {
         let mut allocator = Allocator::new();
         let layout = Layout::from_size_align(PAGE_SIZE, PAGE_SIZE).unwrap();
 
+        let chunk = allocator.alloc(layout);
         unsafe {
-            let chunk = allocator.alloc(layout);
             assert!(!chunk.is_null());
             for i in 0..PAGE_SIZE {
                 *chunk.add(i) = 0xab;
@@ -99,6 +105,7 @@ mod test {
                 assert!(*chunk.add(i) == 0xab);
             }
         }
+        allocator.dealloc(chunk, layout);
     }
 
     #[test_case]

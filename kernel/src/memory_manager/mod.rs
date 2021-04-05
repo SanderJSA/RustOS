@@ -24,6 +24,8 @@ pub fn mmap(addr: Option<usize>, flags: u64) -> *mut u8 {
     addr as *mut u8
 }
 
+pub fn munmap(_addr: *mut u8, _length: usize) {}
+
 #[cfg(test)]
 mod test {
     use super::*;
