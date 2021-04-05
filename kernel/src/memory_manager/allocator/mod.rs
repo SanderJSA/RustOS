@@ -6,6 +6,19 @@ use core::alloc::{GlobalAlloc, Layout};
 use core::ptr::null_mut;
 use slab::Slab;
 
+#[global_allocator]
+static GLOBAL_ALLOCATOR: LockedAllocator = LockedAllocator {
+    0: LazyStatic::new(Allocator::new),
+};
+
+#[alloc_error_handler]
+fn on_oom(layout: Layout) -> ! {
+    panic!(
+        "Allocator ran out of memory while attempting to allocate {:?}",
+        layout
+    );
+}
+
 pub struct Allocator {
     slab_8: Slab,
     slab_16: Slab,
