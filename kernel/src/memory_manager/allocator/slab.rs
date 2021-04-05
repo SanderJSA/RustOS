@@ -8,11 +8,13 @@ pub struct Slab {
 }
 
 struct Block {
-    next: Option<&'static mut Block>,
+    pub next: Option<&'static mut Block>,
 }
 
 impl Slab {
+    /// Create a new slab allocator, `block_size` has to be at least 8 bytes wide
     pub fn new(block_size: usize) -> Slab {
+        assert!(core::mem::size_of::<Block>() <= block_size);
         Slab {
             block_size,
             len: 0,
@@ -21,11 +23,28 @@ impl Slab {
     }
 
     pub fn allocate(&mut self) -> *mut u8 {
-        core::ptr::null_mut()
+        if self.len == 0 {
+            self.grow();
+        }
+        let block = self.head.take().unwrap();
+        self.head = block.next.take();
+        block as *mut _ as *mut u8
+    }
+
+    pub fn deallocate(&mut self, ptr: *mut u8) {
+        let mut block = ptr as *mut Block;
+        unsafe {
+            // ptr has been allocated by allocate(),
+            // It is a valid pointer large enough to fit a Block
+            (*block).next = self.head.take();
+            self.head = Some(&mut *(block));
+        }
+
+        // TODO check if current free block list allows us to free page
     }
 
     /// Allocate a page, fill it with `block_size` blocks and prepend them to the block list
-    pub fn grow(&mut self) {
+    fn grow(&mut self) {
         let page = mmap(None, EntryFlag::Writable as u64);
 
         // Fill as many Blocks as an mmap page can fit
