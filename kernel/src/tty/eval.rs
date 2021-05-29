@@ -1,63 +1,16 @@
-//! This module implements a tty
-
-/*
-/// Start and run tty
-pub fn run_tty() {
-    // Set up shell
-    println!(
-        "     .~~~~`\\~~\\
-     ;       ~~ \\
-     |           ;
- ,--------,______|---.
-/          \\-----`    \\
-`.__________`-_______-'
-           {}\n",
-        1 as char
-    );
-
-    println!("Howdy, welcome to RustOS");
-
-    // Run shell
-    loop {
-        print!("> ");
-        let input = readline();
-
-        match input.split_whitespace().nth(0).unwrap() {
-            "poweroff" => exit_qemu(QemuExitCode::Success),
-            "ls" => file_system::ls(),
-            "touch" => {
-                let data: [u8; 0] = [];
-                file_system::add_file(input.split_whitespace().nth(1).unwrap(), &data, 0)
-            }
-            "help" => println!(
-                "RustOS tty v1.0\n\
-                ls         list files in current directory\n\
-                touch FILE Update the access and modification times of each FILE to the current time.\n\
-                poweroff   Power off the machine\n\
-                "
-            ),
-            _ => print!("Unknown command: {}", input),
-        }
-    }
-}
-*/
+use rustyline::error::ReadlineError;
+use rustyline::Editor;
 
 mod env;
 mod reader;
 mod types;
 
-use crate::alloc::string::*;
-use crate::alloc::vec::Vec;
-use crate::driver::ps2_keyboard::readline;
-use crate::{exit_qemu, file_system, print, println, QemuExitCode};
 use env::Env;
-use reader::Reader;
 use types::*;
 
-fn read() -> MalType {
-    print!("root> ");
-    let line = readline();
-    Reader::new(&line).read_form()
+fn read() -> Result<MalType, ReadlineError> {
+    rl.readline("user> ")
+        .map(|line| Reader::new(&line).read_form())
 }
 
 fn eval_ast(ast: MalType, env: &mut Env) -> MalType {
@@ -80,7 +33,7 @@ fn eval(ast: MalType, env: &mut Env) -> MalType {
             [MalType::Symbol(sym), MalType::List(bindings), exp] if sym == "let*" => {
                 eval_let(bindings, exp, env)
             }
-            //[MalType::Symbol(sym), ..] if sym == "do" => eval_let(bindings, exp, env),
+            [MalType::Symbol(sym), ..] if sym == "do" => eval_let(bindings, exp, env),
             _ => {
                 if let MalType::List(list) = eval_ast(ast, env) {
                     let mut values = list.into_iter();
@@ -118,22 +71,8 @@ fn print(ast: MalType) {
     println!("{}", ast);
 }
 
-pub fn run_tty() {
-    // Greet message
-    println!(
-        "     .~~~~`\\~~\\
-     ;       ~~ \\
-     |           ;
- ,--------,______|---.
-/          \\-----`    \\
-`.__________`-_______-'
-           {}\n",
-        1 as char
-    );
-
-    println!("Howdy, welcome to RustOS");
-
-    // Initialize environment
+fn main() {
+    let mut rl = Editor::<()>::new();
     let mut env = Env::new(None);
     env.set(
         String::from("+"),
@@ -164,9 +103,8 @@ pub fn run_tty() {
         }),
     );
 
-    loop {
-        let input = read();
-        let ast = eval(input, &mut env);
+    while let Ok(ast) = read(&mut rl) {
+        let ast = eval(ast, &mut env);
         print(ast);
     }
 }
