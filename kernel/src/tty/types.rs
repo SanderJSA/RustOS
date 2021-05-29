@@ -7,6 +7,9 @@ pub enum MalType {
     Symbol(String),
     List(Vec<MalType>),
     Func(fn(MalType, MalType) -> MalType),
+    Nil,
+    True,
+    False,
 }
 
 impl Display for MalType {
@@ -24,6 +27,9 @@ impl Display for MalType {
                 write!(f, ")")
             }
             MalType::Func(_) => write!(f, "#<function>"),
+            MalType::Nil => write!(f, "nil"),
+            MalType::True => write!(f, "true"),
+            MalType::False => write!(f, "false"),
         }
     }
 }

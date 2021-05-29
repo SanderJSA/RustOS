@@ -53,10 +53,17 @@ impl<'a> Reader<'a> {
     }
 
     fn read_atom(&mut self) -> MalType {
-        let token = self.pop();
-        match token.parse() {
-            Ok(number) => MalType::Number(number),
-            _ => MalType::Symbol(String::from(token)),
+        match self.pop() {
+            "nil" => MalType::Nil,
+            "true" => MalType::True,
+            "false" => MalType::False,
+            token => {
+                if let Ok(num) = token.parse() {
+                    MalType::Number(num)
+                } else {
+                    MalType::Symbol(String::from(token))
+                }
+            }
         }
     }
 
