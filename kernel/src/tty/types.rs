@@ -1,15 +1,41 @@
+use super::env::Env;
+use alloc::boxed::Box;
+use alloc::rc::Rc;
 use alloc::{string::String, vec::Vec};
+use core::cell::RefCell;
 use core::fmt::{self, Display, Formatter};
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub enum MalType {
     Number(i64),
     Symbol(String),
     List(Vec<MalType>),
-    Func(fn(MalType, MalType) -> MalType),
+    Bool(bool),
     Nil,
-    True,
-    False,
+    Func {
+        eval: fn(ast: &MalType, env: &Rc<RefCell<Env>>) -> MalType,
+        args: Box<MalType>,
+        body: Box<MalType>,
+        env: Rc<RefCell<Env>>,
+    },
+}
+
+impl MalType {
+    pub fn eval_func(self, values: MalType) -> MalType {
+        if let MalType::Func {
+            eval,
+            args,
+            body,
+            env,
+        } = self
+        {
+            let mut env = Env::new(Some(env));
+            env.bind(*args, values);
+            eval(body.as_ref(), &Rc::new(RefCell::new(env)))
+        } else {
+            panic!("Not a function");
+        }
+    }
 }
 
 impl Display for MalType {
@@ -26,10 +52,10 @@ impl Display for MalType {
                 }
                 write!(f, ")")
             }
-            MalType::Func(_) => write!(f, "#<function>"),
+            MalType::Func { .. } => write!(f, "#<function>"),
             MalType::Nil => write!(f, "nil"),
-            MalType::True => write!(f, "true"),
-            MalType::False => write!(f, "false"),
+            MalType::Bool(true) => write!(f, "true"),
+            MalType::Bool(false) => write!(f, "false"),
         }
     }
 }

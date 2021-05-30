@@ -55,8 +55,8 @@ impl<'a> Reader<'a> {
     fn read_atom(&mut self) -> MalType {
         match self.pop() {
             "nil" => MalType::Nil,
-            "true" => MalType::True,
-            "false" => MalType::False,
+            "true" => MalType::Bool(true),
+            "false" => MalType::Bool(false),
             token => {
                 if let Ok(num) = token.parse() {
                     MalType::Number(num)

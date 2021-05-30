@@ -1,13 +1,15 @@
 use super::types::MalType;
+use alloc::rc::Rc;
 use alloc::{collections::BTreeMap, string::String};
+use core::cell::RefCell;
 
-pub struct Env<'a> {
+pub struct Env {
     data: BTreeMap<String, MalType>,
-    outer: Option<&'a Env<'a>>,
+    outer: Option<Rc<RefCell<Env>>>,
 }
 
-impl<'a> Env<'a> {
-    pub fn new(outer: Option<&'a Env>) -> Env<'a> {
+impl Env {
+    pub fn new(outer: Option<Rc<RefCell<Env>>>) -> Env {
         Env {
             data: BTreeMap::new(),
             outer,
@@ -18,17 +20,23 @@ impl<'a> Env<'a> {
         self.data.insert(key, val);
     }
 
-    pub fn find(&self, key: &str) -> Option<&Env> {
-        if self.data.contains_key(key) {
-            Some(self)
-        } else {
-            self.outer.as_ref().and_then(|env| env.find(key))
-        }
+    pub fn get(&self, key: &str) -> Option<MalType> {
+        self.data.get(key).map(|value| value.clone()).or_else(|| {
+            self.outer
+                .as_ref()
+                .and_then(|outer_env| outer_env.borrow().get(key))
+        })
     }
 
-    pub fn get(&self, key: &str) -> Option<MalType> {
-        self.find(key)
-            .and_then(|env| env.data.get(key))
-            .map(|value| value.clone())
+    pub fn bind(&mut self, args: MalType, values: MalType) {
+        if let MalType::List(args) = args {
+            if let MalType::List(values) = values {
+                for (arg, value) in args.into_iter().zip(values.into_iter()) {
+                    if let MalType::Symbol(sym) = arg {
+                        self.set(sym, value);
+                    }
+                }
+            }
+        }
     }
 }
