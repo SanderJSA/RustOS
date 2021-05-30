@@ -23,7 +23,7 @@ pub fn init_core_env(env: &Rc<RefCell<Env>>) {
         "list",
         MalType::Func {
             eval: core_list,
-            args: Box::new(MalType::List(vec![MalType::Symbol("a".to_string())])),
+            args: Box::new(MalType::List(vec![MalType::Symbol("&".to_string())])),
             body: Box::new(MalType::Nil),
             env: env.clone(),
         },
@@ -36,48 +36,72 @@ fn init_num_op(
 ) -> MalType {
     MalType::Func {
         eval: eval_func,
-        args: Box::new(MalType::List(vec![
-            MalType::Symbol("a".to_string()),
-            MalType::Symbol("b".to_string()),
-        ])),
+        args: Box::new(MalType::List(vec![MalType::Symbol("&".to_string())])),
         body: Box::new(MalType::Nil),
         env: env.clone(),
     }
 }
 
 fn core_add(_: &MalType, env: &Rc<RefCell<Env>>) -> MalType {
-    let mal_a = env.borrow().get("a").expect("symbol not found in env");
-    let mal_b = env.borrow().get("b").expect("symbol not found in env");
-    match (mal_a, mal_b) {
-        (MalType::Number(a), MalType::Number(b)) => MalType::Number(a + b),
-        _ => panic!("Operation can only be performed on numbers"),
+    if let MalType::List(values) = env.borrow().get("&").expect("symbol not found in env") {
+        let res = values
+            .iter()
+            .map(|value| match value {
+                MalType::Number(num) => *num,
+                _ => panic!("Value is not a number"),
+            })
+            .sum();
+        MalType::Number(res)
+    } else {
+        unreachable!()
     }
 }
 
 fn core_sub(_: &MalType, env: &Rc<RefCell<Env>>) -> MalType {
-    let mal_a = env.borrow().get("a").expect("symbol not found in env");
-    let mal_b = env.borrow().get("b").expect("symbol not found in env");
-    match (mal_a, mal_b) {
-        (MalType::Number(a), MalType::Number(b)) => MalType::Number(a - b),
-        _ => panic!("Operation can only be performed on numbers"),
+    if let MalType::List(values) = env.borrow().get("&").expect("symbol not found in env") {
+        let res = values
+            .iter()
+            .map(|value| match value {
+                MalType::Number(num) => *num,
+                _ => panic!("Value is not a number"),
+            })
+            .reduce(|a, b| a - b)
+            .unwrap();
+        MalType::Number(res)
+    } else {
+        unreachable!()
     }
 }
 
 fn core_mul(_: &MalType, env: &Rc<RefCell<Env>>) -> MalType {
-    let mal_a = env.borrow().get("a").expect("symbol not found in env");
-    let mal_b = env.borrow().get("b").expect("symbol not found in env");
-    match (mal_a, mal_b) {
-        (MalType::Number(a), MalType::Number(b)) => MalType::Number(a * b),
-        _ => panic!("Operation can only be performed on numbers"),
+    if let MalType::List(values) = env.borrow().get("&").expect("symbol not found in env") {
+        let res = values
+            .iter()
+            .map(|value| match value {
+                MalType::Number(num) => *num,
+                _ => panic!("Value is not a number"),
+            })
+            .reduce(|a, b| a * b)
+            .unwrap();
+        MalType::Number(res)
+    } else {
+        unreachable!()
     }
 }
 
 fn core_div(_: &MalType, env: &Rc<RefCell<Env>>) -> MalType {
-    let mal_a = env.borrow().get("a").expect("symbol not found in env");
-    let mal_b = env.borrow().get("b").expect("symbol not found in env");
-    match (mal_a, mal_b) {
-        (MalType::Number(a), MalType::Number(b)) => MalType::Number(a / b),
-        _ => panic!("Operation can only be performed on numbers"),
+    if let MalType::List(values) = env.borrow().get("&").expect("symbol not found in env") {
+        let res = values
+            .iter()
+            .map(|value| match value {
+                MalType::Number(num) => *num,
+                _ => panic!("Value is not a number"),
+            })
+            .reduce(|a, b| a / b)
+            .unwrap();
+        MalType::Number(res)
+    } else {
+        unreachable!()
     }
 }
 
@@ -86,6 +110,9 @@ fn core_prn(_: &MalType, env: &Rc<RefCell<Env>>) -> MalType {
     MalType::Nil
 }
 
-fn core_list(values: &MalType, env: &Rc<RefCell<Env>>) -> MalType {
-    values.clone()
+fn core_list(_: &MalType, env: &Rc<RefCell<Env>>) -> MalType {
+    env.borrow()
+        .get("&")
+        .expect("symbol not found in env")
+        .clone()
 }
