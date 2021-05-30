@@ -41,6 +41,9 @@ impl Env {
                         self.set(sym, value_iter.next().unwrap());
                     }
                 }
+                if value_iter.next().is_some() {
+                    panic!("Too many arguments given");
+                }
             }
             _ => panic!("Incorrect binding structure"),
         }

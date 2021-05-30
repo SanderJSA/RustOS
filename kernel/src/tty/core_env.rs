@@ -10,20 +10,17 @@ pub fn init_core_env(env: &Rc<RefCell<Env>>) {
     env.borrow_mut().set("-", init_num_op(core_sub, env));
     env.borrow_mut().set("*", init_num_op(core_mul, env));
     env.borrow_mut().set("/", init_num_op(core_div, env));
+    env.borrow_mut().set("<", init_num_op(core_lt, env));
+    env.borrow_mut().set("<=", init_num_op(core_le, env));
+    env.borrow_mut().set("=", init_num_op(core_eq, env));
+    env.borrow_mut().set("=>", init_num_op(core_ge, env));
+    env.borrow_mut().set(">", init_num_op(core_gt, env));
+    env.borrow_mut().set("list", init_num_op(core_list, env));
     env.borrow_mut().set(
         "prn",
         MalType::Func {
             eval: core_prn,
             args: Box::new(MalType::List(vec![MalType::Symbol("a".to_string())])),
-            body: Box::new(MalType::Nil),
-            env: env.clone(),
-        },
-    );
-    env.borrow_mut().set(
-        "list",
-        MalType::Func {
-            eval: core_list,
-            args: Box::new(MalType::List(vec![MalType::Symbol("&".to_string())])),
             body: Box::new(MalType::Nil),
             env: env.clone(),
         },
@@ -115,4 +112,54 @@ fn core_list(_: &MalType, env: &Rc<RefCell<Env>>) -> MalType {
         .get("&")
         .expect("symbol not found in env")
         .clone()
+}
+
+fn core_lt(_: &MalType, env: &Rc<RefCell<Env>>) -> MalType {
+    let args = env.borrow().get("&").expect("symbol not found in env");
+    if let MalType::List(list) = args {
+        if let [MalType::Number(left), MalType::Number(right)] = &list[..] {
+            return MalType::Bool(left < right);
+        }
+    }
+    unreachable!()
+}
+
+fn core_le(_: &MalType, env: &Rc<RefCell<Env>>) -> MalType {
+    let args = env.borrow().get("&").expect("symbol not found in env");
+    if let MalType::List(list) = args {
+        if let [MalType::Number(left), MalType::Number(right)] = &list[..] {
+            return MalType::Bool(left <= right);
+        }
+    }
+    unreachable!()
+}
+
+fn core_eq(_: &MalType, env: &Rc<RefCell<Env>>) -> MalType {
+    let args = env.borrow().get("&").expect("symbol not found in env");
+    if let MalType::List(list) = args {
+        if let [MalType::Number(left), MalType::Number(right)] = &list[..] {
+            return MalType::Bool(left == right);
+        }
+    }
+    unreachable!()
+}
+
+fn core_ge(_: &MalType, env: &Rc<RefCell<Env>>) -> MalType {
+    let args = env.borrow().get("&").expect("symbol not found in env");
+    if let MalType::List(list) = args {
+        if let [MalType::Number(left), MalType::Number(right)] = &list[..] {
+            return MalType::Bool(left >= right);
+        }
+    }
+    unreachable!()
+}
+
+fn core_gt(_: &MalType, env: &Rc<RefCell<Env>>) -> MalType {
+    let args = env.borrow().get("&").expect("symbol not found in env");
+    if let MalType::List(list) = args {
+        if let [MalType::Number(left), MalType::Number(right)] = &list[..] {
+            return MalType::Bool(left > right);
+        }
+    }
+    unreachable!()
 }
