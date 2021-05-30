@@ -78,7 +78,7 @@ fn eval(ast: &MalType, env: &Rc<RefCell<Env>>) -> MalType {
             [] => eval_ast(ast, env),
             [MalType::Symbol(sym), MalType::Symbol(key), value] if sym == "def!" => {
                 let value = eval(value, env);
-                env.borrow_mut().set(key.to_string(), value.clone());
+                env.borrow_mut().set(key, value.clone());
                 value
             }
             [MalType::Symbol(sym), MalType::List(bindings), exp] if sym == "let*" => {
@@ -122,13 +122,13 @@ fn eval_let(bindings: &Vec<MalType>, exp: &MalType, env: &Rc<RefCell<Env>>) -> M
     let new_env = Rc::new(RefCell::new(Env::new(Some(env.clone()))));
     if let [MalType::Symbol(key), value] = bindings.as_slice() {
         let value = eval(value, &new_env);
-        new_env.borrow_mut().set(key.to_string(), value);
+        new_env.borrow_mut().set(key, value);
     } else {
         for pair in bindings {
             if let MalType::List(pair) = pair {
                 if let [MalType::Symbol(key), value] = pair.as_slice() {
                     let value = eval(value, &new_env);
-                    new_env.borrow_mut().set(key.to_string(), value);
+                    new_env.borrow_mut().set(key, value);
                 }
             }
         }
@@ -156,7 +156,7 @@ pub fn run_tty() {
     println!("Howdy, welcome to RustOS");
     // Initialize environment
     let env = Rc::new(RefCell::new(Env::new(None)));
-    core_env::init_core_env(env.clone());
+    core_env::init_core_env(&env);
 
     // REPL
     loop {
