@@ -1,5 +1,6 @@
 use super::env::Env;
 use super::types::MalType;
+use crate::{exit_qemu, file_system, print, println, QemuExitCode};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::{string::*, vec};
@@ -25,6 +26,17 @@ pub fn init_core_env(env: &Rc<RefCell<Env>>) {
             env: env.clone(),
         },
     );
+    /*
+    env.borrow_mut().set(
+        "shutdown",
+        MalType::Func {
+            eval: shutdown,
+            args: Box::new(MalType::List(vec![])),
+            body: Box::new(MalType::Nil),
+            env: env.clone(),
+        },
+    );
+    */
 }
 
 fn init_num_op(
@@ -162,4 +174,8 @@ fn core_gt(_: &MalType, env: &Rc<RefCell<Env>>) -> MalType {
         }
     }
     unreachable!()
+}
+
+fn shutdown(_: &MalType, _: &Rc<RefCell<Env>>) -> MalType {
+    exit_qemu(QemuExitCode::Success)
 }
