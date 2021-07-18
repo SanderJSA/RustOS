@@ -56,7 +56,7 @@ pub unsafe fn init_idt() {
 }
 
 extern "x86-interrupt" fn double_fault_handler(
-    stack_frame: &mut InterruptStackFrame,
+    stack_frame: InterruptStackFrame,
     _error_code: u64,
 ) -> ! {
     panic!(
@@ -65,16 +65,16 @@ extern "x86-interrupt" fn double_fault_handler(
     );
 }
 
-extern "x86-interrupt" fn breakpoint_handler(stack_frame: &mut InterruptStackFrame) {
+extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {
     println!("EXCEPTION: BREAKPOINT\n{:#?}", stack_frame);
 }
 
-extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: &mut InterruptStackFrame) {
+extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFrame) {
     PICS.obtain()
         .notify_end_of_interrupt(PICIndex::Timer.as_u8());
 }
 
-extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: &mut InterruptStackFrame) {
+extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStackFrame) {
     let scan_code: u8 = unsafe {
         // KEYBOARD_PORT exists
         port::inb(KEYBOARD_PORT)
@@ -84,7 +84,7 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: &mut Interrup
         .notify_end_of_interrupt(PICIndex::Keyboard.as_u8());
 }
 extern "x86-interrupt" fn page_fault_handler(
-    stack_frame: &mut InterruptStackFrame,
+    stack_frame: InterruptStackFrame,
     error_code: PageFaultErrorCode,
 ) {
     let address: usize;
@@ -100,10 +100,10 @@ extern "x86-interrupt" fn page_fault_handler(
     panic!();
 }
 
-extern "x86-interrupt" fn ata1_handler(_stack_frame: &mut InterruptStackFrame) {
+extern "x86-interrupt" fn ata1_handler(_stack_frame: InterruptStackFrame) {
     PICS.obtain().end_all_interrupts();
 }
 
-extern "x86-interrupt" fn ata2_handler(_stack_frame: &mut InterruptStackFrame) {
+extern "x86-interrupt" fn ata2_handler(_stack_frame: InterruptStackFrame) {
     PICS.obtain().end_all_interrupts();
 }
