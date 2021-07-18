@@ -15,9 +15,18 @@ impl<'a> Reader<'a> {
             tokens: Vec::new(),
             index: 0,
         };
+        crate::println!("line: {}, eval: {}", line, &line[0..1] != "(");
+        let add_parens = line.len() == 0 || &line[0..1] != "(";
+        if add_parens {
+            reader.tokens.push("(".to_string());
+        }
+
         while reader.line.len() != 0 {
             let token = reader.tokenize().to_string();
             reader.tokens.push(token);
+        }
+        if add_parens {
+            reader.tokens.push(")".to_string());
         }
         reader
     }
