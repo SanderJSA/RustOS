@@ -26,7 +26,6 @@ pub fn init_core_env(env: &Rc<RefCell<Env>>) {
             env: env.clone(),
         },
     );
-    /*
     env.borrow_mut().set(
         "shutdown",
         MalType::Func {
@@ -36,7 +35,6 @@ pub fn init_core_env(env: &Rc<RefCell<Env>>) {
             env: env.clone(),
         },
     );
-    */
 }
 
 fn init_num_op(
