@@ -1,15 +1,18 @@
+use super::eval;
 use super::types::MalType;
 use alloc::rc::Rc;
 use alloc::{collections::BTreeMap, string::*};
 use core::cell::RefCell;
 
+pub type RcEnv = Rc<RefCell<Env>>;
+
 pub struct Env {
     data: BTreeMap<String, MalType>,
-    outer: Option<Rc<RefCell<Env>>>,
+    outer: Option<RcEnv>,
 }
 
 impl Env {
-    pub fn new(outer: Option<Rc<RefCell<Env>>>) -> Env {
+    pub fn new(outer: Option<RcEnv>) -> Env {
         Env {
             data: BTreeMap::new(),
             outer,
@@ -47,5 +50,12 @@ impl Env {
             }
             _ => panic!("Incorrect binding structure"),
         }
+    }
+}
+
+pub fn bind_list(env: &RcEnv, bindings: &[MalType]) {
+    if let [MalType::Symbol(key), value, tail @ ..] = bindings {
+        env.borrow_mut().set(key, eval(value, env));
+        bind_list(env, tail);
     }
 }
