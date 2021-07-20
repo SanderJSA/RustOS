@@ -75,11 +75,11 @@ fn eval(mut ast: &MalType, mut env: &Rc<RefCell<Env>>) -> MalType {
     loop {
         match ast {
             MalType::List(list) => match list.as_slice() {
-                [] => eval_ast(ast, env),
+                [] => return eval_ast(ast, env),
                 [MalType::Symbol(sym), MalType::Symbol(key), value] if sym == "def!" => {
                     let value = eval(value, env);
                     env.borrow_mut().set(key, value.clone());
-                    value
+                    value;
                 }
                 [MalType::Symbol(sym), MalType::List(bindings), exp] if sym == "let*" => {
                     env = &Rc::new(RefCell::new(Env::new(Some(env.clone()))));
@@ -94,12 +94,14 @@ fn eval(mut ast: &MalType, mut env: &Rc<RefCell<Env>>) -> MalType {
                     }
                     ast = tail;
                 }
-                [MalType::Symbol(sym), ..] if sym == "fn*" => MalType::Func {
-                    eval,
-                    args: Box::new(list[1].clone()),
-                    body: Box::new(list[2].clone()),
-                    env: env.clone(),
-                },
+                [MalType::Symbol(sym), args, body] if sym == "fn*" => {
+                    return MalType::Func {
+                        eval,
+                        args: Box::new(args.clone()),
+                        body: Box::new(body.clone()),
+                        env: env.clone(),
+                    };
+                }
                 [MalType::Symbol(sym), cond, success, failure] if sym == "if" => {
                     ast = match eval(cond, env) {
                         MalType::Nil | MalType::Bool(false) => failure,
@@ -110,14 +112,14 @@ fn eval(mut ast: &MalType, mut env: &Rc<RefCell<Env>>) -> MalType {
                     if let MalType::List(list) = eval_ast(ast, env) {
                         let mut values = list.into_iter();
                         let func = values.next().unwrap();
-                        func.eval_func(MalType::List(values.collect()))
+                        func.eval_func(MalType::List(values.collect()));
                     } else {
                         unreachable!();
                     }
                 }
             },
 
-            _ => eval_ast(ast, env),
+            _ => return eval_ast(ast, env),
         }
     }
 }
