@@ -85,12 +85,14 @@ fn eval(mut ast: &MalType, mut env: &Rc<RefCell<Env>>) -> MalType {
                     env = &Rc::new(RefCell::new(Env::new(Some(env.clone()))));
                     env::bind_list(env, bindings);
                 }
-                [MalType::Symbol(sym), ..] if sym == "do" => {
-                    let mut ret = MalType::Nil;
-                    for exp in list.iter().skip(1) {
-                        ret = eval(exp, env);
+                [MalType::Symbol(sym)] if sym == "do" => {
+                    return MalType::Nil;
+                }
+                [MalType::Symbol(sym), middle @ .., tail] if sym == "do" => {
+                    for exp in middle {
+                        eval(exp, env);
                     }
-                    ret
+                    ast = tail;
                 }
                 [MalType::Symbol(sym), ..] if sym == "fn*" => MalType::Func {
                     eval,
@@ -99,9 +101,9 @@ fn eval(mut ast: &MalType, mut env: &Rc<RefCell<Env>>) -> MalType {
                     env: env.clone(),
                 },
                 [MalType::Symbol(sym), cond, success, failure] if sym == "if" => {
-                    match eval(cond, env) {
-                        MalType::Nil | MalType::Bool(false) => eval(failure, env),
-                        _ => eval(success, env),
+                    ast = match eval(cond, env) {
+                        MalType::Nil | MalType::Bool(false) => failure,
+                        _ => success,
                     }
                 }
                 _ => {
