@@ -104,7 +104,7 @@ init_lm:
     lea rsi, [_stage2_end]   # Move loaded kernel
     lea rdi, [_kernel_start] # To _kernel_start
     lea rcx, [_kernel_size]  # _kernel_size times
-    rep movsd                #
+    rep movsb                #
 
     lea rax, [_start]
     call rax
