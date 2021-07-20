@@ -41,7 +41,7 @@ pub unsafe extern "C" fn memcmp(s1: *const u8, s2: *const u8, n: usize) -> i32 {
         let left = *s1.add(i);
         let right = *s2.add(i);
         if left != right {
-            return (left - right) as i32;
+            return left as i32 - right as i32;
         }
     }
     0
