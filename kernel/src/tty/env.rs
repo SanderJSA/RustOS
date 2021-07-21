@@ -31,10 +31,10 @@ impl Env {
         })
     }
 
-    pub fn bind(&mut self, args: MalType, values: MalType) {
-        match (args, values) {
-            (MalType::List(args), MalType::List(values)) => {
-                let mut value_iter = values.into_iter();
+    pub fn bind(&mut self, args: &MalType, values: &[MalType]) {
+        match args {
+            (MalType::List(args)) => {
+                let mut value_iter = values.iter().map(|mal| mal.clone());
                 for arg in args.iter() {
                     if let MalType::Symbol(sym) = arg {
                         if sym == "&" {

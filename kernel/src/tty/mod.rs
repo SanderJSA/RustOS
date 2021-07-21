@@ -71,7 +71,8 @@ fn eval_ast(ast: &MalType, env: &Rc<RefCell<Env>>) -> MalType {
     }
 }
 
-fn eval(mut ast: &MalType, mut env: &Rc<RefCell<Env>>) -> MalType {
+fn eval(mut ast: &MalType, env: &Rc<RefCell<Env>>) -> MalType {
+    let mut env = env.clone();
     loop {
         match ast {
             MalType::List(list) => match list.as_slice() {
@@ -96,7 +97,6 @@ fn eval(mut ast: &MalType, mut env: &Rc<RefCell<Env>>) -> MalType {
                 }
                 [MalType::Symbol(sym), args, body] if sym == "fn*" => {
                     return MalType::Func {
-                        eval,
                         args: Box::new(args.clone()),
                         body: Box::new(body.clone()),
                         env: env.clone(),
@@ -110,9 +110,23 @@ fn eval(mut ast: &MalType, mut env: &Rc<RefCell<Env>>) -> MalType {
                 }
                 _ => {
                     if let MalType::List(list) = eval_ast(ast, env) {
-                        let mut values = list.into_iter();
-                        let func = values.next().unwrap();
-                        func.eval_func(MalType::List(values.collect()));
+                        match &list[..] {
+                            [MalType::Builtin {
+                                eval,
+                                args,
+                                body,
+                                env,
+                            }, tail @ ..] => {
+                                env = Rc::new(RefCell::new(Env::new(Some(env))));
+                                env.borrow_mut().bind(&args, tail);
+                                return eval(body, env);
+                            }
+                            [MalType::Func { args, body, env }, tail @ ..] => {
+                                ast = &body.clone();
+                                env = Rc::new(RefCell::new(Env::new(Some(env))));
+                                env.borrow_mut().bind(&args, tail);
+                            }
+                        }
                     } else {
                         unreachable!();
                     }

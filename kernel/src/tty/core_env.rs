@@ -19,7 +19,7 @@ pub fn init_core_env(env: &Rc<RefCell<Env>>) {
     env.borrow_mut().set("list", init_num_op(core_list, env));
     env.borrow_mut().set(
         "prn",
-        MalType::Func {
+        MalType::Builtin {
             eval: core_prn,
             args: Box::new(MalType::List(vec![MalType::Symbol("a".to_string())])),
             body: Box::new(MalType::Nil),
@@ -28,7 +28,7 @@ pub fn init_core_env(env: &Rc<RefCell<Env>>) {
     );
     env.borrow_mut().set(
         "shutdown",
-        MalType::Func {
+        MalType::Builtin {
             eval: shutdown,
             args: Box::new(MalType::List(vec![])),
             body: Box::new(MalType::Nil),
@@ -41,7 +41,7 @@ fn init_num_op(
     eval_func: fn(ast: &MalType, env: &Rc<RefCell<Env>>) -> MalType,
     env: &Rc<RefCell<Env>>,
 ) -> MalType {
-    MalType::Func {
+    MalType::Builtin {
         eval: eval_func,
         args: Box::new(MalType::List(vec![MalType::Symbol("&".to_string())])),
         body: Box::new(MalType::Nil),

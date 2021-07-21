@@ -13,6 +13,11 @@ pub enum MalType {
     Bool(bool),
     Nil,
     Func {
+        args: Box<MalType>,
+        body: Box<MalType>,
+        env: Rc<RefCell<Env>>,
+    },
+    Builtin {
         eval: fn(ast: &MalType, env: &Rc<RefCell<Env>>) -> MalType,
         args: Box<MalType>,
         body: Box<MalType>,
@@ -21,8 +26,8 @@ pub enum MalType {
 }
 
 impl MalType {
-    pub fn eval_func(self, values: MalType) -> MalType {
-        if let MalType::Func {
+    pub fn eval_func(self, values: &[MalType]) -> MalType {
+        if let MalType::Builtin {
             eval,
             args,
             body,
@@ -30,10 +35,10 @@ impl MalType {
         } = self
         {
             let mut env = Env::new(Some(env));
-            env.bind(*args, values);
-            eval(body.as_ref(), &Rc::new(RefCell::new(env)))
+            env.bind(&args, values);
+            eval(&body, &Rc::new(RefCell::new(env)))
         } else {
-            panic!("Not a function");
+            panic!("Not a builtin");
         }
     }
 }
