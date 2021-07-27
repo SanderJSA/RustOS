@@ -3,6 +3,7 @@ use super::types::MalType;
 use alloc::rc::Rc;
 use alloc::{collections::BTreeMap, string::*};
 use core::cell::RefCell;
+use core::fmt::{self, Display, Formatter};
 
 pub type RcEnv = Rc<RefCell<Env>>;
 
@@ -24,7 +25,7 @@ impl Env {
     }
 
     pub fn get(&self, key: &str) -> Option<MalType> {
-        self.data.get(key).map(|value| value.clone()).or_else(|| {
+        self.data.get(key).cloned().or_else(|| {
             self.outer
                 .as_ref()
                 .and_then(|outer_env| outer_env.borrow().get(key))
@@ -33,8 +34,8 @@ impl Env {
 
     pub fn bind(&mut self, args: &MalType, values: &[MalType]) {
         match args {
-            (MalType::List(args)) => {
-                let mut value_iter = values.iter().map(|mal| mal.clone());
+            MalType::List(args) => {
+                let mut value_iter = values.iter().cloned();
                 for arg in args.iter() {
                     if let MalType::Symbol(sym) = arg {
                         if sym == "&" {
@@ -53,9 +54,15 @@ impl Env {
     }
 }
 
-pub fn bind_list(env: &RcEnv, bindings: &[MalType]) {
+impl Display for Env {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self.data.keys())
+    }
+}
+
+pub fn bind_list(env: RcEnv, bindings: &[MalType]) {
     if let [MalType::Symbol(key), value, tail @ ..] = bindings {
-        env.borrow_mut().set(key, eval(value, env));
+        env.borrow_mut().set(key, eval(value.clone(), env.clone()));
         bind_list(env, tail);
     }
 }

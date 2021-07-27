@@ -25,24 +25,6 @@ pub enum MalType {
     },
 }
 
-impl MalType {
-    pub fn eval_func(self, values: &[MalType]) -> MalType {
-        if let MalType::Builtin {
-            eval,
-            args,
-            body,
-            env,
-        } = self
-        {
-            let mut env = Env::new(Some(env));
-            env.bind(&args, values);
-            eval(&body, &Rc::new(RefCell::new(env)))
-        } else {
-            panic!("Not a builtin");
-        }
-    }
-}
-
 impl Display for MalType {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
@@ -58,6 +40,7 @@ impl Display for MalType {
                 write!(f, ")")
             }
             MalType::Func { .. } => write!(f, "#<function>"),
+            MalType::Builtin { .. } => write!(f, "#<builtin>"),
             MalType::Nil => write!(f, "nil"),
             MalType::Bool(true) => write!(f, "true"),
             MalType::Bool(false) => write!(f, "false"),

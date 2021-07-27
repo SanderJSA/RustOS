@@ -15,18 +15,9 @@ impl<'a> Reader<'a> {
             tokens: Vec::new(),
             index: 0,
         };
-        crate::println!("line: {}, eval: {}", line, &line[0..1] != "(");
-        let add_parens = line.len() == 0 || &line[0..1] != "(";
-        if add_parens {
-            reader.tokens.push("(".to_string());
-        }
-
-        while reader.line.len() != 0 {
+        while !reader.line.is_empty() {
             let token = reader.tokenize().to_string();
             reader.tokens.push(token);
-        }
-        if add_parens {
-            reader.tokens.push(")".to_string());
         }
         reader
     }
@@ -110,12 +101,11 @@ impl<'a> Reader<'a> {
     }
 
     fn trim_whitespace(&mut self) {
-        while self.line.len() != 0 {
-            let c = self.line.chars().nth(0).unwrap();
-            if c != ' ' && c != '\t' && c != ',' {
-                break;
+        while let Some(c) = self.line.chars().next() {
+            match c {
+                ' ' | '\t' | ',' => self.line = &self.line[1..],
+                _ => break,
             }
-            self.line = &self.line[1..];
         }
     }
 
