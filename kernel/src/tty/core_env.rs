@@ -1,6 +1,6 @@
 use super::env::Env;
 use super::types::MalType;
-use crate::{exit_qemu, file_system, print, println, QemuExitCode};
+use crate::{exit_qemu, QemuExitCode};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::{string::*, vec};
@@ -118,10 +118,7 @@ fn core_prn(_: &MalType, env: &Rc<RefCell<Env>>) -> MalType {
 }
 
 fn core_list(_: &MalType, env: &Rc<RefCell<Env>>) -> MalType {
-    env.borrow()
-        .get("&")
-        .expect("symbol not found in env")
-        .clone()
+    env.borrow().get("&").expect("symbol not found in env")
 }
 
 fn core_lt(_: &MalType, env: &Rc<RefCell<Env>>) -> MalType {
