@@ -14,7 +14,6 @@ fn fs_start_lba() -> usize {
     }
 }
 
-#[allow(dead_code)]
 #[repr(u8)]
 pub enum TypeFlag {
     File = 0,

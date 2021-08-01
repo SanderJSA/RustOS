@@ -5,7 +5,7 @@ authors = ["Sander JSA <sanderjsa@hotmail.com>"]
 edition = "2018"
 
 [dependencies]
-x86_64_crate = { package = "x86_64", version = "0.13.2" }
+x86_64_crate = { package = "x86_64", version = "=0.14.3" }
 
 [[bin]]
 name = "kernel"

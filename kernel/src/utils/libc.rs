@@ -22,12 +22,11 @@ pub unsafe extern "C" fn memcpy(dest: *mut u8, src: *const u8, n: usize) -> *mut
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn memmove(dest: *mut u8, src: *const u8, n: usize) -> *mut u8 {
-    if src < dest {
-        let mut i = 0;
-        while i < n {
-            *dest.add(i) = *src.add(i);
-            i += 1;
+pub unsafe extern "C" fn memmove(dest: *mut u8, src: *const u8, mut n: usize) -> *mut u8 {
+    if src < dest && src as usize + n > dest as usize {
+        while n > 0 {
+            *dest.add(n) = *src.add(n);
+            n -= 1;
         }
         dest
     } else {
@@ -41,7 +40,7 @@ pub unsafe extern "C" fn memcmp(s1: *const u8, s2: *const u8, n: usize) -> i32 {
         let left = *s1.add(i);
         let right = *s2.add(i);
         if left != right {
-            return (left - right) as i32;
+            return left as i32 - right as i32;
         }
     }
     0
