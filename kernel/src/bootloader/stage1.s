@@ -1,5 +1,4 @@
 .section .stage1, "awx"
-.intel_syntax noprefix
 .global bootloader_start
 
 # Stage 1 loads stage 2 and the kernel,

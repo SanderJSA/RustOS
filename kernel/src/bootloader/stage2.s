@@ -1,5 +1,4 @@
 .section .stage2, "awx"
-.intel_syntax noprefix
 
 # Stage 2 sets up paging by identity mapping the first 2MB
 # Enters long mode and moves kernel to its target address
