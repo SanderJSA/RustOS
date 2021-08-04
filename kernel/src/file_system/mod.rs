@@ -26,6 +26,7 @@ impl File {
         let len = buf.len().min(self.size - self.index);
         let lba = self.data_addr + (self.index / BLOCK_SIZE);
         let sectors = (self.index + len - 1) / BLOCK_SIZE - self.index / BLOCK_SIZE + 1;
+
         let mut sector_buf = alloc::vec![0; BLOCK_SIZE * sectors];
         sector_reader(lba, sectors as u8, &mut sector_buf);
         let block_offset = self.index % BLOCK_SIZE;
@@ -173,7 +174,7 @@ mod tests {
             index: 0,
             data_addr: 0,
         };
-        let sectors: Vec<u8> = (0..2000).map(|val| val as u8).collect();
+        let sectors: Vec<u8> = (0..2048).map(|val| val as u8).collect();
         let sector_reader =
             |lba, nb_sectors, buf: &mut [u8]| sector_reader(&sectors, lba, nb_sectors, buf);
 
@@ -186,7 +187,6 @@ mod tests {
             file.read_generic(&mut buf[300..613], sector_reader),
             Some(613 - 300)
         );
-        /*
         assert_eq!(
             file.read_generic(&mut buf[613..1700], sector_reader),
             Some(1700 - 613)
@@ -195,7 +195,6 @@ mod tests {
             file.read_generic(&mut buf[1700..2000], sector_reader),
             Some(2000 - 1700)
         );
-        assert_eq!(buf, sectors.as_slice());
-        */
+        assert_eq!(buf, sectors[..2000]);
     }
 }
