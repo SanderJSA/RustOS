@@ -11,6 +11,10 @@ pub struct File {
 }
 
 impl File {
+    pub fn create(filename: &str) -> Option<File> {
+        Some(ustar::create_file(filename))
+    }
+
     pub fn open(filename: &str) -> Option<File> {
         ustar::open(filename)
     }
@@ -24,8 +28,8 @@ impl File {
         T: Fn(usize, u8, &mut [u8]),
     {
         let len = buf.len().min(self.size - self.index);
-        let lba = self.data_addr + (self.index / BLOCK_SIZE);
-        let sectors = (self.index + len - 1) / BLOCK_SIZE - self.index / BLOCK_SIZE + 1;
+        let lba = self.data_addr + get_sector(self.index);
+        let sectors = get_sector(self.index + len - 1) - get_sector(self.index) + 1;
 
         let mut sector_buf = alloc::vec![0; BLOCK_SIZE * sectors];
         sector_reader(lba, sectors as u8, &mut sector_buf);
@@ -35,12 +39,34 @@ impl File {
 
         Some(len)
     }
+
+    pub fn write(&mut self, buf: &[u8]) -> Option<usize> {
+        let end = get_sector(self.index + buf.len() - 1);
+        let start = get_sector(self.index);
+        let sectors = start - end + 1;
+        let lba = self.data_addr + get_sector(self.index);
+        let block_offset = self.index % BLOCK_SIZE;
+
+        let mut sector_buf = alloc::vec![0; sectors * BLOCK_SIZE ];
+        ata::read_sectors(lba, sectors as u8, &mut sector_buf);
+
+        sector_buf[block_offset..block_offset + buf.len()].copy_from_slice(buf);
+        ata::write_sectors(lba, sectors as u8, &sector_buf);
+
+        self.size += buf.len();
+        self.index += buf.len();
+        Some(buf.len())
+    }
 }
 
 impl Drop for File {
     fn drop(&mut self) {
         // Nothing needed for now
     }
+}
+
+fn get_sector(addr: usize) -> usize {
+    addr / BLOCK_SIZE
 }
 
 #[cfg(test)]

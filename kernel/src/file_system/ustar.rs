@@ -53,7 +53,7 @@ impl Metadata {
     fn empty() -> Metadata {
         let ustar_indicator = [b'u', b's', b't', b'a', b'r', 0];
         Metadata {
-            name: [0; 100],
+            name: [b'\0'; 100],
             permissions: 0,
             owner_id: 0,
             group_id: 0,
@@ -94,9 +94,35 @@ pub fn ls() {
             i += 1;
         }
         let name = &metadata.name[0..i];
-        crate::println!("{}", str::from_utf8(&name).unwrap());
+        crate::println!("{}", str::from_utf8(name).unwrap());
 
         addr += ((metadata.size + 511) / BLOCK_SIZE) + 1;
+    }
+}
+
+pub fn create_file(name: &str) -> File {
+    // Find free spot
+    let mut addr = fs_start_lba();
+    loop {
+        let mut tmp = Metadata::empty();
+        ata::read_sectors(addr, 1, any_as_u8_slice_mut(&mut tmp));
+        if !tmp.is_file() {
+            break;
+        }
+        addr += ((tmp.size + BLOCK_SIZE - 1) / BLOCK_SIZE) + 1;
+    }
+
+    // Create metadata
+    let mut metadata = Metadata::empty();
+    metadata.name[..name.len()].copy_from_slice(name.as_bytes());
+
+    // Write to disk
+    ata::write_sectors(addr, 1, any_as_u8_slice(&metadata));
+
+    File {
+        size: 0,
+        index: 0,
+        data_addr: addr + BLOCK_SIZE,
     }
 }
 
@@ -116,7 +142,7 @@ pub fn add_file(name: &str, data: &[u8], size: usize) {
         if !tmp.is_file() {
             break;
         }
-        addr += ((tmp.size + 511) / BLOCK_SIZE) + 1;
+        addr += ((tmp.size + BLOCK_SIZE - 1) / BLOCK_SIZE) + 1;
     }
 
     // Write to disk
