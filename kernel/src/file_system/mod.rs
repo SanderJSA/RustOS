@@ -29,9 +29,7 @@ impl File {
         let mut sector_buf = alloc::vec![0; BLOCK_SIZE * sectors];
         sector_reader(lba, sectors as u8, &mut sector_buf);
         let block_offset = self.index % BLOCK_SIZE;
-        for i in 0..len {
-            buf[i] = sector_buf[i + block_offset];
-        }
+        buf[..len].copy_from_slice(&sector_buf[block_offset..(len + block_offset)]);
         self.index += len;
 
         Some(len)
@@ -150,6 +148,22 @@ mod tests {
             Some(1024 - 600)
         );
         assert_eq!(buf, sectors.as_slice());
+    }
+
+    #[test_case]
+    fn read_too_much() {
+        let mut file = File {
+            size: 512,
+            index: 0,
+            data_addr: 0,
+        };
+        let sectors: Vec<u8> = (0..512).map(|val| val as u8).collect();
+        let sector_reader =
+            |lba, nb_sectors, buf: &mut [u8]| sector_reader(&sectors, lba, nb_sectors, buf);
+
+        let mut buf = [0; 600];
+        assert_eq!(file.read_generic(&mut buf, sector_reader), Some(512));
+        assert_eq!(buf[..512], sectors);
     }
 
     #[test_case]
