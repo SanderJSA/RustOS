@@ -1,143 +1,187 @@
-//! Implementation of a USTAR file system
+//! Implementation of the file system syscalls
 
+mod ustar;
 use crate::arch::ata;
-use core::{mem, slice, str};
+use ustar::BLOCK_SIZE;
 
-extern "C" {
-    static _kernel_size: usize;
-}
-
-fn fs_start_lba() -> usize {
-    unsafe {
-        // Symbol is initialized by the linker
-        (&_kernel_size as *const _ as usize / 512) + 2
-    }
-}
-
-#[repr(u8)]
-pub enum TypeFlag {
-    File = 0,
-    HardLink = 1,
-    SymbolicLink = 2,
-    CharacterDevice = 3,
-    BlockDevice = 4,
-    Directory = 5,
-    Pipe = 6,
-}
-
-#[repr(C)]
-#[repr(align(512))]
-struct Metadata {
-    name: [u8; 100],
-    permissions: u64,
-    owner_id: u64,
-    group_id: u64,
+pub struct File {
     size: usize,
-    last_modified: [u8; 12],
-    checksum: u64,
-    type_flag: TypeFlag,
-    linked_file: [u8; 100],
-    ustar_indicator: [u8; 6],
-    ustar_version: [u8; 2],
-    owner: [u8; 32],
-    group: [u8; 32],
-    device_major_number: u64,
-    device_minor_number: u64,
-    filename_prefix: [u8; 155],
+    index: usize,
+    data_addr: usize,
 }
 
-impl Metadata {
-    fn empty() -> Metadata {
-        let ustar_indicator = [b'u', b's', b't', b'a', b'r', 0];
-        Metadata {
-            name: [0; 100],
-            permissions: 0,
-            owner_id: 0,
-            group_id: 0,
-            size: 0,
-            last_modified: [0; 12],
-            checksum: 0,
-            type_flag: TypeFlag::File,
-            linked_file: [0; 100],
-            ustar_indicator,
-            ustar_version: [0; 2],
-            owner: [0; 32],
-            group: [0; 32],
-            device_major_number: 0,
-            device_minor_number: 0,
-            filename_prefix: [0; 155],
+impl File {
+    pub fn open(filename: &str) -> Option<File> {
+        ustar::open(filename)
+    }
+
+    pub fn read(&mut self, buf: &mut [u8]) -> Option<usize> {
+        self.read_generic(buf, ata::read_sectors)
+    }
+
+    fn read_generic<T>(&mut self, buf: &mut [u8], sector_reader: T) -> Option<usize>
+    where
+        T: Fn(usize, u8, &mut [u8]),
+    {
+        let len = buf.len().min(self.size - self.index);
+        let lba = self.data_addr + (self.index / BLOCK_SIZE);
+        let sectors = (self.index + len - 1) / BLOCK_SIZE - self.index / BLOCK_SIZE + 1;
+        let mut sector_buf = alloc::vec![0; BLOCK_SIZE * sectors];
+        sector_reader(lba, sectors as u8, &mut sector_buf);
+        let block_offset = self.index % BLOCK_SIZE;
+        for i in 0..len {
+            buf[i] = sector_buf[i + block_offset];
+        }
+        self.index += len;
+
+        Some(len)
+    }
+}
+
+impl Drop for File {
+    fn drop(&mut self) {
+        // Nothing needed for now
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::vec::Vec;
+
+    fn sector_reader(sectors: &[u8], lba: usize, nb_sectors: u8, buf: &mut [u8]) {
+        let start_addr = lba * BLOCK_SIZE;
+        for i in 0..(nb_sectors as usize * BLOCK_SIZE) {
+            buf[i] = sectors[start_addr + i];
         }
     }
 
-    pub fn is_file(&self) -> bool {
-        let res = str::from_utf8(&self.ustar_indicator);
-        res.is_ok() && res.unwrap() == "ustar\0"
-    }
-}
+    #[test_case]
+    fn read_one_block() {
+        let mut file = File {
+            size: 512,
+            index: 0,
+            data_addr: 0,
+        };
+        let sectors: Vec<u8> = (0..512).map(|val| val as u8).collect();
+        let sector_reader =
+            |lba, nb_sectors, buf: &mut [u8]| sector_reader(&sectors, lba, nb_sectors, buf);
 
-pub fn ls() {
-    let mut addr = fs_start_lba();
-    loop {
-        let mut metadata = Metadata::empty();
-        ata::read_sectors(addr, 1, any_as_u8_slice_mut(&mut metadata));
-
-        if !metadata.is_file() {
-            return;
-        }
-
-        // Remove nullbytes from name
-        let mut i = 0;
-        while i < 100 && metadata.name[i] != b'\0' {
-            i += 1;
-        }
-        let name = &metadata.name[0..i];
-        crate::println!("{}", str::from_utf8(&name).unwrap());
-
-        addr += ((metadata.size + 511) / 512) + 1;
-    }
-}
-
-pub fn add_file(name: &str, data: &[u8], size: usize) {
-    // Create metadata
-    let mut metadata = Metadata::empty();
-    metadata.size = size;
-    for i in 0..name.len() {
-        metadata.name[i] = name.as_bytes()[i];
+        let mut buf = [0; 512];
+        assert_eq!(file.read_generic(&mut buf, sector_reader), Some(512));
+        assert_eq!(buf, sectors.as_slice());
     }
 
-    // Find free spot
-    let mut addr = fs_start_lba();
-    loop {
-        let mut tmp = Metadata::empty();
-        ata::read_sectors(addr, 1, any_as_u8_slice_mut(&mut tmp));
-        if !tmp.is_file() {
-            break;
-        }
-        addr += ((tmp.size + 511) / 512) + 1;
+    #[test_case]
+    fn read_two_blocks() {
+        let mut file = File {
+            size: 1024,
+            index: 0,
+            data_addr: 0,
+        };
+        let sectors: Vec<u8> = (0..1024).map(|val| val as u8).collect();
+        let sector_reader =
+            |lba, nb_sectors, buf: &mut [u8]| sector_reader(&sectors, lba, nb_sectors, buf);
+
+        let mut buf = [0; 1024];
+        assert_eq!(file.read_generic(&mut buf, sector_reader), Some(1024));
+        assert_eq!(buf, sectors.as_slice());
     }
 
-    // Write to disk
-    ata::write_sectors(addr, 1, any_as_u8_slice(&metadata));
+    #[test_case]
+    fn two_reads() {
+        let mut file = File {
+            size: 512,
+            index: 0,
+            data_addr: 0,
+        };
+        let sectors: Vec<u8> = (0..512).map(|val| val as u8).collect();
+        let sector_reader =
+            |lba, nb_sectors, buf: &mut [u8]| sector_reader(&sectors, lba, nb_sectors, buf);
 
-    if size > 0 {
-        ata::write_sectors(addr + 512, ((size + 511) / 512) as u8, data);
+        let mut buf = [0; 512];
+        assert_eq!(file.read_generic(&mut buf[..100], sector_reader), Some(100));
+        assert_eq!(
+            file.read_generic(&mut buf[100..], sector_reader),
+            Some(512 - 100)
+        );
+        assert_eq!(buf, sectors.as_slice());
     }
-}
 
-/// A helper function that translate a given input to a &[u8]
-fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
-    unsafe {
-        // *T points to valid memory
-        // size_of<T> guarantees our slice only contains T
-        slice::from_raw_parts((p as *const T) as *const u8, mem::size_of::<T>())
+    #[test_case]
+    fn two_reads_two_blocks() {
+        let mut file = File {
+            size: 1024,
+            index: 0,
+            data_addr: 0,
+        };
+        let sectors: Vec<u8> = (0..1024).map(|val| val as u8).collect();
+        let sector_reader =
+            |lba, nb_sectors, buf: &mut [u8]| sector_reader(&sectors, lba, nb_sectors, buf);
+
+        let mut buf = [0; 1024];
+        assert_eq!(file.read_generic(&mut buf[..345], sector_reader), Some(345));
+        assert_eq!(
+            file.read_generic(&mut buf[345..], sector_reader),
+            Some(1024 - 345)
+        );
+        assert_eq!(buf, sectors.as_slice());
     }
-}
 
-/// A helper function that translate a given input to a &mut [u8]
-fn any_as_u8_slice_mut<T: Sized>(p: &mut T) -> &mut [u8] {
-    unsafe {
-        // *T points to valid memory
-        // size_of<T> guarantees our slice only contains T
-        slice::from_raw_parts_mut((p as *mut T) as *mut u8, mem::size_of::<T>())
+    #[test_case]
+    fn short_read_across_section() {
+        let mut file = File {
+            size: 1024,
+            index: 0,
+            data_addr: 0,
+        };
+        let sectors: Vec<u8> = (0..1024).map(|val| val as u8).collect();
+        let sector_reader =
+            |lba, nb_sectors, buf: &mut [u8]| sector_reader(&sectors, lba, nb_sectors, buf);
+
+        let mut buf = [0; 1024];
+        assert_eq!(file.read_generic(&mut buf[..500], sector_reader), Some(500));
+        assert_eq!(
+            file.read_generic(&mut buf[500..600], sector_reader),
+            Some(600 - 500)
+        );
+        assert_eq!(
+            file.read_generic(&mut buf[600..], sector_reader),
+            Some(1024 - 600)
+        );
+        assert_eq!(buf, sectors.as_slice());
+    }
+
+    #[test_case]
+    fn read_tricky() {
+        let mut file = File {
+            size: 2000,
+            index: 0,
+            data_addr: 0,
+        };
+        let sectors: Vec<u8> = (0..2000).map(|val| val as u8).collect();
+        let sector_reader =
+            |lba, nb_sectors, buf: &mut [u8]| sector_reader(&sectors, lba, nb_sectors, buf);
+
+        let mut buf = [0; 2000];
+        assert_eq!(
+            file.read_generic(&mut buf[0..300], sector_reader),
+            Some(300 - 0)
+        );
+        assert_eq!(
+            file.read_generic(&mut buf[300..613], sector_reader),
+            Some(613 - 300)
+        );
+        /*
+        assert_eq!(
+            file.read_generic(&mut buf[613..1700], sector_reader),
+            Some(1700 - 613)
+        );
+        assert_eq!(
+            file.read_generic(&mut buf[1700..2000], sector_reader),
+            Some(2000 - 1700)
+        );
+        assert_eq!(buf, sectors.as_slice());
+        */
     }
 }
