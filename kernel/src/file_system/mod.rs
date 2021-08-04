@@ -57,6 +57,10 @@ impl File {
         self.index += buf.len();
         Some(buf.len())
     }
+
+    pub fn get_size(&self) -> usize {
+        self.size
+    }
 }
 
 impl Drop for File {
