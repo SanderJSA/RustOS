@@ -2,6 +2,7 @@
 
 mod ustar;
 use crate::arch::ata;
+pub use ustar::ls;
 use ustar::{Entry, BLOCK_SIZE};
 
 pub struct File {

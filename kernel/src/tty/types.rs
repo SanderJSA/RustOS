@@ -11,6 +11,7 @@ pub enum MalType {
     Symbol(String),
     List(Vec<MalType>),
     Bool(bool),
+    String(String),
     Nil,
     Func {
         args: Box<MalType>,
@@ -44,6 +45,7 @@ impl Display for MalType {
             MalType::Nil => write!(f, "nil"),
             MalType::Bool(true) => write!(f, "true"),
             MalType::Bool(false) => write!(f, "false"),
+            MalType::String(str) => write!(f, "\"{}\"", str),
         }
     }
 }

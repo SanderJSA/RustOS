@@ -1,5 +1,6 @@
 use super::env::Env;
 use super::types::MalType;
+use crate::file_system::File;
 use crate::{exit_qemu, QemuExitCode};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
@@ -30,6 +31,33 @@ pub fn init_core_env(env: &Rc<RefCell<Env>>) {
         "shutdown",
         MalType::Builtin {
             eval: shutdown,
+            args: Box::new(MalType::List(vec![])),
+            body: Box::new(MalType::Nil),
+            env: env.clone(),
+        },
+    );
+    env.borrow_mut().set(
+        "read-string",
+        MalType::Builtin {
+            eval: read_string,
+            args: Box::new(MalType::List(vec![MalType::Symbol("a".to_string())])),
+            body: Box::new(MalType::Nil),
+            env: env.clone(),
+        },
+    );
+    env.borrow_mut().set(
+        "slurp",
+        MalType::Builtin {
+            eval: slurp,
+            args: Box::new(MalType::List(vec![MalType::Symbol("a".to_string())])),
+            body: Box::new(MalType::Nil),
+            env: env.clone(),
+        },
+    );
+    env.borrow_mut().set(
+        "ls",
+        MalType::Builtin {
+            eval: ls,
             args: Box::new(MalType::List(vec![])),
             body: Box::new(MalType::Nil),
             env: env.clone(),
@@ -173,4 +201,32 @@ fn core_gt(_: &MalType, env: &Rc<RefCell<Env>>) -> MalType {
 
 fn shutdown(_: &MalType, _: &Rc<RefCell<Env>>) -> MalType {
     exit_qemu(QemuExitCode::Success)
+}
+
+fn read_string(_: &MalType, env: &Rc<RefCell<Env>>) -> MalType {
+    if let Some(MalType::String(str)) = env.borrow().get("a") {
+        super::read_str(&str)
+    } else {
+        panic!("read-string: Expected a string argument");
+    }
+}
+
+fn slurp(_: &MalType, env: &Rc<RefCell<Env>>) -> MalType {
+    if let Some(MalType::String(filename)) = env.borrow().get("a") {
+        let mut file = File::open(&filename).expect("Could not open file");
+        let mut content = String::with_capacity(file.get_size());
+        unsafe {
+            // as_bytes_mut is safe as we can only handle ASCII
+            file.read(content.as_bytes_mut());
+        }
+        MalType::String(content)
+    } else {
+        panic!("slurp: Expected a string argument");
+    }
+}
+
+//TEMP
+fn ls(_: &MalType, _: &Rc<RefCell<Env>>) -> MalType {
+    crate::file_system::ls();
+    MalType::Nil
 }

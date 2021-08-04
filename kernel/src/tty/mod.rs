@@ -30,8 +30,10 @@ Howdy, welcome to RustOS",
 
 fn read() -> MalType {
     print!("root> ");
-    let line = readline();
-    Reader::new(&line[..line.len() - 1]).read_form()
+    read_str(readline().trim_end())
+}
+fn read_str(line: &str) -> MalType {
+    Reader::new(line).read_form()
 }
 
 fn eval_ast(ast: MalType, env: RcEnv) -> MalType {
