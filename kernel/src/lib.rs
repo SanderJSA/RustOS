@@ -13,7 +13,7 @@ extern crate alloc;
 mod arch;
 pub mod driver;
 #[allow(dead_code)]
-mod file_system;
+pub mod file_system;
 pub mod memory_manager;
 mod tty;
 mod utils;
