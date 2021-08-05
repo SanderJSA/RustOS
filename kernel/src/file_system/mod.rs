@@ -2,21 +2,23 @@
 
 mod ustar;
 use crate::arch::ata;
-use ustar::BLOCK_SIZE;
+use ustar::{Entry, BLOCK_SIZE};
 
 pub struct File {
-    size: usize,
     index: usize,
-    data_addr: usize,
+    entry: Entry,
 }
 
 impl File {
+    fn new(entry: Entry) -> File {
+        File { index: 0, entry }
+    }
     pub fn create(filename: &str) -> Option<File> {
-        Some(ustar::create_file(filename))
+        Some(File::new(ustar::create_file(filename)))
     }
 
     pub fn open(filename: &str) -> Option<File> {
-        ustar::open(filename)
+        ustar::open(filename).map(File::new)
     }
 
     pub fn read(&mut self, buf: &mut [u8]) -> Option<usize> {
@@ -27,8 +29,8 @@ impl File {
     where
         T: Fn(usize, u8, &mut [u8]),
     {
-        let len = buf.len().min(self.size - self.index);
-        let lba = self.data_addr + get_sector(self.index);
+        let len = buf.len().min(self.entry.size - self.index);
+        let lba = self.entry.get_sector() + 1 + get_sector(self.index);
         let sectors = get_sector(self.index + len.saturating_sub(1)) - get_sector(self.index) + 1;
 
         let mut sector_buf = alloc::vec![0; BLOCK_SIZE * sectors];
@@ -44,7 +46,7 @@ impl File {
         let end = get_sector(self.index + buf.len().saturating_sub(1));
         let start = get_sector(self.index);
         let sectors = start - end + 1;
-        let lba = self.data_addr + get_sector(self.index);
+        let lba = self.entry.get_sector() + 1 + get_sector(self.index);
         let block_offset = self.index % BLOCK_SIZE;
 
         let mut sector_buf = alloc::vec![0; sectors * BLOCK_SIZE ];
@@ -53,13 +55,18 @@ impl File {
         sector_buf[block_offset..block_offset + buf.len()].copy_from_slice(buf);
         ata::write_sectors(lba, sectors as u8, &sector_buf);
 
-        self.size += buf.len();
         self.index += buf.len();
+        self.entry.size += buf.len();
+        ata::write_sectors(
+            self.entry.get_sector(),
+            1,
+            ustar::any_as_u8_slice(&self.entry),
+        );
         Some(buf.len())
     }
 
     pub fn get_size(&self) -> usize {
-        self.size
+        self.entry.size
     }
 }
 

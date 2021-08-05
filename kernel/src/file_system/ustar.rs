@@ -34,7 +34,7 @@ pub struct Entry {
     permissions: u64,
     owner_id: u64,
     group_id: u64,
-    size: usize,
+    pub size: usize,
     last_modified: [u8; 12],
     checksum: u64,
     type_flag: TypeFlag,
@@ -89,6 +89,10 @@ impl Entry {
     pub fn is_file(&self) -> bool {
         let res = str::from_utf8(&self.ustar_indicator);
         res.is_ok() && res.unwrap() == "ustar\0"
+    }
+
+    pub fn get_sector(&self) -> usize {
+        self.sector
     }
 }
 
@@ -145,7 +149,7 @@ pub fn open(filename: &str) -> Option<Entry> {
 }
 
 /// A helper function that translate a given input to a &[u8]
-fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
+pub fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
     unsafe {
         // *T points to valid memory
         // size_of<T> guarantees our slice only contains T
