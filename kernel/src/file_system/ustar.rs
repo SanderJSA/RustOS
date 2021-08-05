@@ -45,8 +45,9 @@ pub struct Entry {
     group: [u8; 32],
     device_major_number: u64,
     device_minor_number: u64,
-    filename_prefix: [u8; 155],
-    /// Extension
+    ///Variation, the filename_prefix is slightly reduced
+    filename_prefix: [u8; 147],
+    ///To store entry's LBA
     sector: usize,
 }
 
@@ -115,7 +116,7 @@ impl Default for Entry {
             group: [0; 32],
             device_major_number: 0,
             device_minor_number: 0,
-            filename_prefix: [0; 155],
+            filename_prefix: [0; 147],
             sector: 0,
         }
     }
@@ -137,7 +138,7 @@ pub fn create_file(name: &str) -> Entry {
     let lba = Directory::new(fs_start_lba())
         .last()
         .map(|entry| entry.sector + 1 + (entry.size + BLOCK_SIZE - 1) / BLOCK_SIZE)
-        .unwrap_or(fs_start_lba());
+        .unwrap_or_else(fs_start_lba);
 
     let entry = Entry::new(name, lba);
     ata::write_sectors(lba, 1, any_as_u8_slice(&entry));
