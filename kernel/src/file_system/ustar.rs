@@ -1,6 +1,5 @@
 //! Implementation of a USTAR file system
 
-use super::File;
 use crate::arch::ata;
 use core::{mem, slice, str};
 
@@ -30,7 +29,7 @@ pub enum TypeFlag {
 
 #[repr(C)]
 #[repr(align(512))]
-struct Metadata {
+pub struct Entry {
     name: [u8; 100],
     permissions: u64,
     owner_id: u64,
@@ -47,20 +46,42 @@ struct Metadata {
     device_major_number: u64,
     device_minor_number: u64,
     filename_prefix: [u8; 155],
+    /// Extension
+    sector: usize,
 }
 
-impl Metadata {
-    pub fn new(name: &str) -> Metadata {
-        let mut metadata = Metadata::default();
-        metadata.name[..name.len()].copy_from_slice(name.as_bytes());
-        metadata
+struct Directory {
+    lba: usize,
+}
+impl Directory {
+    pub fn new(lba: usize) -> Directory {
+        Directory { lba }
+    }
+}
+
+impl Iterator for Directory {
+    type Item = Entry;
+    fn next(&mut self) -> Option<Self::Item> {
+        Entry::from_sector(self.lba).map(|entry| {
+            self.lba += ((entry.size + BLOCK_SIZE - 1) / BLOCK_SIZE) + 1;
+            entry
+        })
+    }
+}
+
+impl Entry {
+    pub fn new(name: &str, sector: usize) -> Entry {
+        let mut entry = Entry::default();
+        entry.name[..name.len()].copy_from_slice(name.as_bytes());
+        entry.sector = sector;
+        entry
     }
 
-    pub fn from_sector(lba: usize) -> Option<Metadata> {
-        let mut metadata = Metadata::default();
-        ata::read_sectors(lba, 1, any_as_u8_slice_mut(&mut metadata));
-        match metadata.is_file() {
-            true => Some(metadata),
+    pub fn from_sector(lba: usize) -> Option<Entry> {
+        let mut entry = Entry::default();
+        ata::read_sectors(lba, 1, any_as_u8_slice_mut(&mut entry));
+        match entry.is_file() {
+            true => Some(entry),
             false => None,
         }
     }
@@ -71,10 +92,10 @@ impl Metadata {
     }
 }
 
-impl Default for Metadata {
-    fn default() -> Metadata {
+impl Default for Entry {
+    fn default() -> Entry {
         let ustar_indicator = [b'u', b's', b't', b'a', b'r', 0];
-        Metadata {
+        Entry {
             name: [b'\0'; 100],
             permissions: 0,
             owner_id: 0,
@@ -91,6 +112,7 @@ impl Default for Metadata {
             device_major_number: 0,
             device_minor_number: 0,
             filename_prefix: [0; 155],
+            sector: 0,
         }
     }
 }
@@ -101,43 +123,30 @@ fn str_from_cstring(cstr: &[u8]) -> &str {
 }
 
 pub fn ls() {
-    let mut addr = fs_start_lba();
-    while let Some(metadata) = Metadata::from_sector(addr) {
-        crate::println!("{}", str_from_cstring(&metadata.name));
-        addr += ((metadata.size + BLOCK_SIZE - 1) / BLOCK_SIZE) + 1;
+    let dir = Directory::new(fs_start_lba());
+    for entry in dir {
+        crate::println!("{}", str_from_cstring(&entry.name));
     }
 }
 
 pub fn create_file(name: &str) -> File {
     // Find free spot
-    let mut addr = fs_start_lba();
-    while let Some(metadata) = Metadata::from_sector(addr) {
-        addr += ((metadata.size + BLOCK_SIZE - 1) / BLOCK_SIZE) + 1;
+    let mut lba = fs_start_lba();
+    while let Some(entry) = Entry::from_sector(lba) {
+        lba += ((entry.size + BLOCK_SIZE - 1) / BLOCK_SIZE) + 1;
     }
 
-    let metadata = Metadata::new(name);
+    let entry = Entry::new(name);
 
-    ata::write_sectors(addr, 1, any_as_u8_slice(&metadata));
-
-    File {
-        size: 0,
-        index: 0,
-        data_addr: addr + BLOCK_SIZE,
-    }
+    ata::write_sectors(lba, 1, any_as_u8_slice(&entry));
 }
 
-pub fn open(filename: &str) -> Option<File> {
-    let mut addr = fs_start_lba();
-    while let Some(metadata) = Metadata::from_sector(addr) {
-        if str_from_cstring(&metadata.name) == filename {
-            return Some(File {
-                size: metadata.size,
-                index: 0,
-                data_addr: addr + BLOCK_SIZE,
-            });
+pub fn open(filename: &str) -> Option<Entry> {
+    let dir = Directory::new(fs_start_lba());
+    for entry in dir {
+        if str_from_cstring(&entry.name) == filename {
+            return Some(entry);
         }
-
-        addr += ((metadata.size + BLOCK_SIZE - 1) / BLOCK_SIZE) + 1;
     }
     None
 }
