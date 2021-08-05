@@ -129,26 +129,19 @@ pub fn ls() {
     }
 }
 
-pub fn create_file(name: &str) -> File {
-    // Find free spot
-    let mut lba = fs_start_lba();
-    while let Some(entry) = Entry::from_sector(lba) {
-        lba += ((entry.size + BLOCK_SIZE - 1) / BLOCK_SIZE) + 1;
-    }
+pub fn create_file(name: &str) -> Entry {
+    let lba = Directory::new(fs_start_lba())
+        .last()
+        .map(|entry| entry.sector + 1 + (entry.size + BLOCK_SIZE - 1) / BLOCK_SIZE)
+        .unwrap_or(fs_start_lba());
 
-    let entry = Entry::new(name);
-
+    let entry = Entry::new(name, lba);
     ata::write_sectors(lba, 1, any_as_u8_slice(&entry));
+    entry
 }
 
 pub fn open(filename: &str) -> Option<Entry> {
-    let dir = Directory::new(fs_start_lba());
-    for entry in dir {
-        if str_from_cstring(&entry.name) == filename {
-            return Some(entry);
-        }
-    }
-    None
+    Directory::new(fs_start_lba()).find(|entry| str_from_cstring(&entry.name) == filename)
 }
 
 /// A helper function that translate a given input to a &[u8]
