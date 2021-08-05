@@ -50,7 +50,29 @@ struct Metadata {
 }
 
 impl Metadata {
-    fn empty() -> Metadata {
+    pub fn new(name: &str) -> Metadata {
+        let mut metadata = Metadata::default();
+        metadata.name[..name.len()].copy_from_slice(name.as_bytes());
+        metadata
+    }
+
+    pub fn from_sector(lba: usize) -> Option<Metadata> {
+        let mut metadata = Metadata::default();
+        ata::read_sectors(lba, 1, any_as_u8_slice_mut(&mut metadata));
+        match metadata.is_file() {
+            true => Some(metadata),
+            false => None,
+        }
+    }
+
+    pub fn is_file(&self) -> bool {
+        let res = str::from_utf8(&self.ustar_indicator);
+        res.is_ok() && res.unwrap() == "ustar\0"
+    }
+}
+
+impl Default for Metadata {
+    fn default() -> Metadata {
         let ustar_indicator = [b'u', b's', b't', b'a', b'r', 0];
         Metadata {
             name: [b'\0'; 100],
@@ -71,52 +93,30 @@ impl Metadata {
             filename_prefix: [0; 155],
         }
     }
+}
 
-    pub fn is_file(&self) -> bool {
-        let res = str::from_utf8(&self.ustar_indicator);
-        res.is_ok() && res.unwrap() == "ustar\0"
-    }
+fn str_from_cstring(cstr: &[u8]) -> &str {
+    let len = cstr.iter().position(|c| c == &b'\0').unwrap_or(cstr.len());
+    str::from_utf8(&cstr[..len]).expect("Could not parse Cstring")
 }
 
 pub fn ls() {
     let mut addr = fs_start_lba();
-    loop {
-        let mut metadata = Metadata::empty();
-        ata::read_sectors(addr, 1, any_as_u8_slice_mut(&mut metadata));
-
-        if !metadata.is_file() {
-            return;
-        }
-
-        // Remove nullbytes from name
-        let mut i = 0;
-        while i < 100 && metadata.name[i] != b'\0' {
-            i += 1;
-        }
-        let name = &metadata.name[0..i];
-        crate::println!("{}", str::from_utf8(name).unwrap());
-
-        addr += ((metadata.size + 511) / BLOCK_SIZE) + 1;
+    while let Some(metadata) = Metadata::from_sector(addr) {
+        crate::println!("{}", str_from_cstring(&metadata.name));
+        addr += ((metadata.size + BLOCK_SIZE - 1) / BLOCK_SIZE) + 1;
     }
 }
 
 pub fn create_file(name: &str) -> File {
     // Find free spot
     let mut addr = fs_start_lba();
-    loop {
-        let mut tmp = Metadata::empty();
-        ata::read_sectors(addr, 1, any_as_u8_slice_mut(&mut tmp));
-        if !tmp.is_file() {
-            break;
-        }
-        addr += ((tmp.size + BLOCK_SIZE - 1) / BLOCK_SIZE) + 1;
+    while let Some(metadata) = Metadata::from_sector(addr) {
+        addr += ((metadata.size + BLOCK_SIZE - 1) / BLOCK_SIZE) + 1;
     }
 
-    // Create metadata
-    let mut metadata = Metadata::empty();
-    metadata.name[..name.len()].copy_from_slice(name.as_bytes());
+    let metadata = Metadata::new(name);
 
-    // Write to disk
     ata::write_sectors(addr, 1, any_as_u8_slice(&metadata));
 
     File {
@@ -128,18 +128,8 @@ pub fn create_file(name: &str) -> File {
 
 pub fn open(filename: &str) -> Option<File> {
     let mut addr = fs_start_lba();
-    loop {
-        let mut metadata = Metadata::empty();
-        ata::read_sectors(addr, 1, any_as_u8_slice_mut(&mut metadata));
-
-        if !metadata.is_file() {
-            return None;
-        }
-
-        // Remove nullbytes from name
-        let meta_name = str::from_utf8(&metadata.name).unwrap();
-        let name = meta_name.split_once('\0').unwrap_or((meta_name, "")).0;
-        if name == filename {
+    while let Some(metadata) = Metadata::from_sector(addr) {
+        if str_from_cstring(&metadata.name) == filename {
             return Some(File {
                 size: metadata.size,
                 index: 0,
@@ -147,8 +137,9 @@ pub fn open(filename: &str) -> Option<File> {
             });
         }
 
-        addr += ((metadata.size + 511) / BLOCK_SIZE) + 1;
+        addr += ((metadata.size + BLOCK_SIZE - 1) / BLOCK_SIZE) + 1;
     }
+    None
 }
 
 /// A helper function that translate a given input to a &[u8]
