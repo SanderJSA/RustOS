@@ -29,7 +29,7 @@ impl File {
     {
         let len = buf.len().min(self.size - self.index);
         let lba = self.data_addr + get_sector(self.index);
-        let sectors = get_sector(self.index + len - 1) - get_sector(self.index) + 1;
+        let sectors = get_sector(self.index + len.saturating_sub(1)) - get_sector(self.index) + 1;
 
         let mut sector_buf = alloc::vec![0; BLOCK_SIZE * sectors];
         sector_reader(lba, sectors as u8, &mut sector_buf);
@@ -41,7 +41,7 @@ impl File {
     }
 
     pub fn write(&mut self, buf: &[u8]) -> Option<usize> {
-        let end = get_sector(self.index + buf.len() - 1);
+        let end = get_sector(self.index + buf.len().saturating_sub(1));
         let start = get_sector(self.index);
         let sectors = start - end + 1;
         let lba = self.data_addr + get_sector(self.index);
@@ -195,6 +195,21 @@ mod tests {
         let mut buf = [0; 600];
         assert_eq!(file.read_generic(&mut buf, sector_reader), Some(512));
         assert_eq!(buf[..512], sectors);
+    }
+
+    #[test_case]
+    fn read_zero() {
+        let mut file = File {
+            size: 512,
+            index: 0,
+            data_addr: 0,
+        };
+        let sectors: Vec<u8> = (0..512).map(|val| val as u8).collect();
+        let sector_reader =
+            |lba, nb_sectors, buf: &mut [u8]| sector_reader(&sectors, lba, nb_sectors, buf);
+
+        let mut buf = [0; 0];
+        assert_eq!(file.read_generic(&mut buf, sector_reader), Some(0));
     }
 
     #[test_case]
