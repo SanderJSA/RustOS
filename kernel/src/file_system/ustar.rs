@@ -126,33 +126,6 @@ pub fn create_file(name: &str) -> File {
     }
 }
 
-pub fn add_file(name: &str, data: &[u8], size: usize) {
-    // Create metadata
-    let mut metadata = Metadata::empty();
-    metadata.size = size;
-    for i in 0..name.len() {
-        metadata.name[i] = name.as_bytes()[i];
-    }
-
-    // Find free spot
-    let mut addr = fs_start_lba();
-    loop {
-        let mut tmp = Metadata::empty();
-        ata::read_sectors(addr, 1, any_as_u8_slice_mut(&mut tmp));
-        if !tmp.is_file() {
-            break;
-        }
-        addr += ((tmp.size + BLOCK_SIZE - 1) / BLOCK_SIZE) + 1;
-    }
-
-    // Write to disk
-    ata::write_sectors(addr, 1, any_as_u8_slice(&metadata));
-
-    if size > 0 {
-        ata::write_sectors(addr + BLOCK_SIZE, ((size + 511) / BLOCK_SIZE) as u8, data);
-    }
-}
-
 pub fn open(filename: &str) -> Option<File> {
     let mut addr = fs_start_lba();
     loop {
