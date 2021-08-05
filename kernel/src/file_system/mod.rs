@@ -37,8 +37,8 @@ impl File {
         sector_reader(lba, sectors as u8, &mut sector_buf);
         let block_offset = self.index % BLOCK_SIZE;
         buf[..len].copy_from_slice(&sector_buf[block_offset..(len + block_offset)]);
-        self.index += len;
 
+        self.index += len;
         Some(len)
     }
 
@@ -84,9 +84,17 @@ fn get_sector(addr: usize) -> usize {
 mod tests {
     use super::*;
     use alloc::vec::Vec;
+    fn create_file(size: usize) -> File {
+        let mut entry = Entry::default();
+        entry.size = size;
+        File::new(entry)
+    }
 
-    fn sector_reader(sectors: &[u8], lba: usize, nb_sectors: u8, buf: &mut [u8]) {
+    fn sector_reader(sectors: &[u8], mut lba: usize, nb_sectors: u8, buf: &mut [u8]) {
+        //The first sector is normally reserved for the metadata, which we ignore here
+        lba -= 1;
         let start_addr = lba * BLOCK_SIZE;
+
         for i in 0..(nb_sectors as usize * BLOCK_SIZE) {
             buf[i] = sectors[start_addr + i];
         }
@@ -94,11 +102,7 @@ mod tests {
 
     #[test_case]
     fn read_one_block() {
-        let mut file = File {
-            size: 512,
-            index: 0,
-            data_addr: 0,
-        };
+        let mut file = create_file(512);
         let sectors: Vec<u8> = (0..512).map(|val| val as u8).collect();
         let sector_reader =
             |lba, nb_sectors, buf: &mut [u8]| sector_reader(&sectors, lba, nb_sectors, buf);
@@ -110,11 +114,7 @@ mod tests {
 
     #[test_case]
     fn read_two_blocks() {
-        let mut file = File {
-            size: 1024,
-            index: 0,
-            data_addr: 0,
-        };
+        let mut file = create_file(1024);
         let sectors: Vec<u8> = (0..1024).map(|val| val as u8).collect();
         let sector_reader =
             |lba, nb_sectors, buf: &mut [u8]| sector_reader(&sectors, lba, nb_sectors, buf);
@@ -126,11 +126,7 @@ mod tests {
 
     #[test_case]
     fn two_reads() {
-        let mut file = File {
-            size: 512,
-            index: 0,
-            data_addr: 0,
-        };
+        let mut file = create_file(512);
         let sectors: Vec<u8> = (0..512).map(|val| val as u8).collect();
         let sector_reader =
             |lba, nb_sectors, buf: &mut [u8]| sector_reader(&sectors, lba, nb_sectors, buf);
@@ -146,11 +142,7 @@ mod tests {
 
     #[test_case]
     fn two_reads_two_blocks() {
-        let mut file = File {
-            size: 1024,
-            index: 0,
-            data_addr: 0,
-        };
+        let mut file = create_file(1024);
         let sectors: Vec<u8> = (0..1024).map(|val| val as u8).collect();
         let sector_reader =
             |lba, nb_sectors, buf: &mut [u8]| sector_reader(&sectors, lba, nb_sectors, buf);
@@ -166,11 +158,7 @@ mod tests {
 
     #[test_case]
     fn short_read_across_section() {
-        let mut file = File {
-            size: 1024,
-            index: 0,
-            data_addr: 0,
-        };
+        let mut file = create_file(1024);
         let sectors: Vec<u8> = (0..1024).map(|val| val as u8).collect();
         let sector_reader =
             |lba, nb_sectors, buf: &mut [u8]| sector_reader(&sectors, lba, nb_sectors, buf);
@@ -190,11 +178,7 @@ mod tests {
 
     #[test_case]
     fn read_too_much() {
-        let mut file = File {
-            size: 512,
-            index: 0,
-            data_addr: 0,
-        };
+        let mut file = create_file(512);
         let sectors: Vec<u8> = (0..512).map(|val| val as u8).collect();
         let sector_reader =
             |lba, nb_sectors, buf: &mut [u8]| sector_reader(&sectors, lba, nb_sectors, buf);
@@ -206,11 +190,7 @@ mod tests {
 
     #[test_case]
     fn read_zero() {
-        let mut file = File {
-            size: 512,
-            index: 0,
-            data_addr: 0,
-        };
+        let mut file = create_file(512);
         let sectors: Vec<u8> = (0..512).map(|val| val as u8).collect();
         let sector_reader =
             |lba, nb_sectors, buf: &mut [u8]| sector_reader(&sectors, lba, nb_sectors, buf);
@@ -221,11 +201,7 @@ mod tests {
 
     #[test_case]
     fn read_tricky() {
-        let mut file = File {
-            size: 2000,
-            index: 0,
-            data_addr: 0,
-        };
+        let mut file = create_file(2000);
         let sectors: Vec<u8> = (0..2048).map(|val| val as u8).collect();
         let sector_reader =
             |lba, nb_sectors, buf: &mut [u8]| sector_reader(&sectors, lba, nb_sectors, buf);
