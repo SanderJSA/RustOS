@@ -63,6 +63,18 @@ pub fn init_core_env(env: &Rc<RefCell<Env>>) {
             env: env.clone(),
         },
     );
+    env.borrow_mut().set(
+        "write-to-file",
+        MalType::Builtin {
+            eval: write_to_file,
+            args: Box::new(MalType::List(vec![
+                MalType::Symbol("a".to_string()),
+                MalType::Symbol("b".to_string()),
+            ])),
+            body: Box::new(MalType::Nil),
+            env: env.clone(),
+        },
+    );
 }
 
 fn init_num_op(
@@ -215,6 +227,10 @@ fn slurp(_: &MalType, env: &Rc<RefCell<Env>>) -> MalType {
     if let Some(MalType::String(filename)) = env.borrow().get("a") {
         let mut file = File::open(&filename).expect("Could not open file");
         let mut content = String::with_capacity(file.get_size());
+        for _ in 0..file.get_size() {
+            content.push('\0');
+        }
+        crate::println!("len: {}", content.len());
         unsafe {
             // as_bytes_mut is safe as we can only handle ASCII
             file.read(content.as_bytes_mut());
@@ -222,6 +238,18 @@ fn slurp(_: &MalType, env: &Rc<RefCell<Env>>) -> MalType {
         MalType::String(content)
     } else {
         panic!("slurp: Expected a string argument");
+    }
+}
+
+fn write_to_file(_: &MalType, env: &Rc<RefCell<Env>>) -> MalType {
+    if let (Some(MalType::String(filename)), Some(MalType::String(content))) =
+        (env.borrow().get("a"), env.borrow().get("b"))
+    {
+        let mut file = File::create(&filename).expect("Could not open file");
+        file.write(content.as_bytes());
+        MalType::Nil
+    } else {
+        panic!("write-to-file: Expected a string argument");
     }
 }
 
