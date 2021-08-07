@@ -230,7 +230,6 @@ fn slurp(_: &MalType, env: &Rc<RefCell<Env>>) -> MalType {
         for _ in 0..file.get_size() {
             content.push('\0');
         }
-        crate::println!("len: {}", content.len());
         unsafe {
             // as_bytes_mut is safe as we can only handle ASCII
             file.read(content.as_bytes_mut());
