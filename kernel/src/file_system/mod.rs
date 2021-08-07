@@ -3,7 +3,15 @@
 mod ustar;
 use crate::arch::ata;
 pub use ustar::ls;
-use ustar::{Entry, BLOCK_SIZE};
+use ustar::{Entry, ReadDir, BLOCK_SIZE};
+
+pub fn read_dir(dir_name: &str) -> Option<ReadDir> {
+    if dir_name == "\"" {
+        Some(ReadDir::root())
+    } else {
+        None
+    }
+}
 
 pub struct File {
     index: usize,
