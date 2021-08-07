@@ -92,12 +92,11 @@ fn eval(mut ast: MalType, mut env: RcEnv) -> MalType {
                             [MalType::Builtin {
                                 eval,
                                 args,
-                                body,
                                 env: outer,
                             }, tail @ ..] => {
                                 env = Rc::new(RefCell::new(Env::new(Some(outer.clone()))));
                                 env.borrow_mut().bind(args, tail);
-                                return eval(body, &env);
+                                return eval(&env);
                             }
                             [MalType::Func {
                                 args,
