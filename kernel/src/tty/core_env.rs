@@ -68,8 +68,8 @@ pub fn init_core_env(env: &Rc<RefCell<Env>>) {
         MalType::Builtin {
             eval: write_to_file,
             args: Box::new(MalType::List(vec![
-                MalType::Symbol("a".to_string()),
-                MalType::Symbol("b".to_string()),
+                MalType::Symbol("filename".to_string()),
+                MalType::Symbol("content".to_string()),
             ])),
             body: Box::new(MalType::Nil),
             env: env.clone(),
@@ -242,7 +242,7 @@ fn slurp(_: &MalType, env: &Rc<RefCell<Env>>) -> MalType {
 
 fn write_to_file(_: &MalType, env: &Rc<RefCell<Env>>) -> MalType {
     if let (Some(MalType::String(filename)), Some(MalType::String(content))) =
-        (env.borrow().get("a"), env.borrow().get("b"))
+        (env.borrow().get("filename"), env.borrow().get("content"))
     {
         let mut file = File::create(&filename).expect("Could not open file");
         file.write(content.as_bytes());
