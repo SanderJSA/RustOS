@@ -1,13 +1,11 @@
-use super::env::Env;
+use super::env::RcEnv;
 use super::types::MalType;
 use crate::file_system::File;
 use crate::{exit_qemu, QemuExitCode};
 use alloc::boxed::Box;
-use alloc::rc::Rc;
 use alloc::{string::*, vec};
-use core::cell::RefCell;
 
-pub fn init_core_env(env: &Rc<RefCell<Env>>) {
+pub fn init_core_env(env: &RcEnv) {
     env.borrow_mut().set("+", init_num_op(core_add, env));
     env.borrow_mut().set("-", init_num_op(core_sub, env));
     env.borrow_mut().set("*", init_num_op(core_mul, env));
@@ -71,10 +69,7 @@ pub fn init_core_env(env: &Rc<RefCell<Env>>) {
     );
 }
 
-fn init_num_op(
-    eval_func: fn(env: &Rc<RefCell<Env>>) -> MalType,
-    env: &Rc<RefCell<Env>>,
-) -> MalType {
+fn init_num_op(eval_func: fn(env: &RcEnv) -> MalType, env: &RcEnv) -> MalType {
     MalType::Builtin {
         eval: eval_func,
         args: Box::new(MalType::List(vec![MalType::Symbol("&".to_string())])),
@@ -82,7 +77,7 @@ fn init_num_op(
     }
 }
 
-fn core_add(env: &Rc<RefCell<Env>>) -> MalType {
+fn core_add(env: &RcEnv) -> MalType {
     if let MalType::List(values) = env.borrow().get("&").expect("symbol not found in env") {
         let res = values
             .iter()
@@ -97,7 +92,7 @@ fn core_add(env: &Rc<RefCell<Env>>) -> MalType {
     }
 }
 
-fn core_sub(env: &Rc<RefCell<Env>>) -> MalType {
+fn core_sub(env: &RcEnv) -> MalType {
     if let MalType::List(values) = env.borrow().get("&").expect("symbol not found in env") {
         let res = values
             .iter()
@@ -113,7 +108,7 @@ fn core_sub(env: &Rc<RefCell<Env>>) -> MalType {
     }
 }
 
-fn core_mul(env: &Rc<RefCell<Env>>) -> MalType {
+fn core_mul(env: &RcEnv) -> MalType {
     if let MalType::List(values) = env.borrow().get("&").expect("symbol not found in env") {
         let res = values
             .iter()
@@ -129,7 +124,7 @@ fn core_mul(env: &Rc<RefCell<Env>>) -> MalType {
     }
 }
 
-fn core_div(env: &Rc<RefCell<Env>>) -> MalType {
+fn core_div(env: &RcEnv) -> MalType {
     if let MalType::List(values) = env.borrow().get("&").expect("symbol not found in env") {
         let res = values
             .iter()
@@ -145,16 +140,16 @@ fn core_div(env: &Rc<RefCell<Env>>) -> MalType {
     }
 }
 
-fn core_prn(env: &Rc<RefCell<Env>>) -> MalType {
+fn core_prn(env: &RcEnv) -> MalType {
     super::print(env.borrow().get("a").expect("symbol not found in env"));
     MalType::Nil
 }
 
-fn core_list(env: &Rc<RefCell<Env>>) -> MalType {
+fn core_list(env: &RcEnv) -> MalType {
     env.borrow().get("&").expect("symbol not found in env")
 }
 
-fn core_lt(env: &Rc<RefCell<Env>>) -> MalType {
+fn core_lt(env: &RcEnv) -> MalType {
     let args = env.borrow().get("&").expect("symbol not found in env");
     if let MalType::List(list) = args {
         if let [MalType::Number(left), MalType::Number(right)] = &list[..] {
@@ -164,7 +159,7 @@ fn core_lt(env: &Rc<RefCell<Env>>) -> MalType {
     unreachable!()
 }
 
-fn core_le(env: &Rc<RefCell<Env>>) -> MalType {
+fn core_le(env: &RcEnv) -> MalType {
     let args = env.borrow().get("&").expect("symbol not found in env");
     if let MalType::List(list) = args {
         if let [MalType::Number(left), MalType::Number(right)] = &list[..] {
@@ -174,7 +169,7 @@ fn core_le(env: &Rc<RefCell<Env>>) -> MalType {
     unreachable!()
 }
 
-fn core_eq(env: &Rc<RefCell<Env>>) -> MalType {
+fn core_eq(env: &RcEnv) -> MalType {
     let args = env.borrow().get("&").expect("symbol not found in env");
     if let MalType::List(list) = args {
         if let [MalType::Number(left), MalType::Number(right)] = &list[..] {
@@ -184,7 +179,7 @@ fn core_eq(env: &Rc<RefCell<Env>>) -> MalType {
     unreachable!()
 }
 
-fn core_ge(env: &Rc<RefCell<Env>>) -> MalType {
+fn core_ge(env: &RcEnv) -> MalType {
     let args = env.borrow().get("&").expect("symbol not found in env");
     if let MalType::List(list) = args {
         if let [MalType::Number(left), MalType::Number(right)] = &list[..] {
@@ -194,7 +189,7 @@ fn core_ge(env: &Rc<RefCell<Env>>) -> MalType {
     unreachable!()
 }
 
-fn core_gt(env: &Rc<RefCell<Env>>) -> MalType {
+fn core_gt(env: &RcEnv) -> MalType {
     let args = env.borrow().get("&").expect("symbol not found in env");
     if let MalType::List(list) = args {
         if let [MalType::Number(left), MalType::Number(right)] = &list[..] {
@@ -204,11 +199,11 @@ fn core_gt(env: &Rc<RefCell<Env>>) -> MalType {
     unreachable!()
 }
 
-fn shutdown(_: &Rc<RefCell<Env>>) -> MalType {
+fn shutdown(_: &RcEnv) -> MalType {
     exit_qemu(QemuExitCode::Success)
 }
 
-fn read_string(env: &Rc<RefCell<Env>>) -> MalType {
+fn read_string(env: &RcEnv) -> MalType {
     if let Some(MalType::String(str)) = env.borrow().get("a") {
         super::read_str(&str)
     } else {
@@ -216,7 +211,7 @@ fn read_string(env: &Rc<RefCell<Env>>) -> MalType {
     }
 }
 
-fn slurp(env: &Rc<RefCell<Env>>) -> MalType {
+fn slurp(env: &RcEnv) -> MalType {
     if let Some(MalType::String(filename)) = env.borrow().get("a") {
         let mut file = File::open(&filename).expect("Could not open file");
         let mut content = String::with_capacity(file.get_size());
@@ -233,7 +228,7 @@ fn slurp(env: &Rc<RefCell<Env>>) -> MalType {
     }
 }
 
-fn write_to_file(env: &Rc<RefCell<Env>>) -> MalType {
+fn write_to_file(env: &RcEnv) -> MalType {
     if let (Some(MalType::String(filename)), Some(MalType::String(content))) =
         (env.borrow().get("filename"), env.borrow().get("content"))
     {
@@ -246,7 +241,7 @@ fn write_to_file(env: &Rc<RefCell<Env>>) -> MalType {
 }
 
 //TEMP
-fn ls(_: &Rc<RefCell<Env>>) -> MalType {
+fn ls(_: &RcEnv) -> MalType {
     crate::file_system::ls();
     MalType::Nil
 }
