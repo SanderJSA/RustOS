@@ -57,7 +57,9 @@ impl<'a> Reader<'a> {
             "nil" => MalType::Nil,
             "true" => MalType::Bool(true),
             "false" => MalType::Bool(false),
-            str if str.starts_with('\"') => MalType::String(str[1..str.len() - 1].to_string()),
+            string if string.starts_with('\"') => {
+                MalType::String(string[1..string.len() - 1].to_string())
+            }
             token => {
                 if let Ok(num) = token.parse() {
                     MalType::Number(num)

@@ -42,7 +42,7 @@ impl Display for MalType {
             MalType::Nil => write!(f, "nil"),
             MalType::Bool(true) => write!(f, "true"),
             MalType::Bool(false) => write!(f, "false"),
-            MalType::String(str) => write!(f, "\"{}\"", str),
+            MalType::String(string) => write!(f, "\"{}\"", string),
         }
     }
 }
