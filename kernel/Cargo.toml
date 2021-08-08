@@ -22,3 +22,7 @@ harness = false
 [[test]]
 name = "ata_read_write"
 harness = false
+
+[[test]]
+name = "read_write_syscall"
+harness = false
