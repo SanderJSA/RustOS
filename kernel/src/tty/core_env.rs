@@ -67,6 +67,8 @@ pub fn init_core_env(env: &RcEnv) {
             env: env.clone(),
         },
     );
+
+    super::rep("(def! not (fn* (a) (if a false true)))", env.clone());
 }
 
 fn init_num_op(eval_func: fn(env: &RcEnv) -> MalType, env: &RcEnv) -> MalType {
