@@ -28,14 +28,6 @@ Howdy, welcome to RustOS",
     );
 }
 
-fn read() -> MalType {
-    print!("root> ");
-    read_str(readline().trim_end())
-}
-fn read_str(line: &str) -> MalType {
-    Reader::new(line).read_form()
-}
-
 fn eval_ast(ast: MalType, env: RcEnv) -> MalType {
     match ast {
         MalType::Symbol(sym) => env
@@ -120,8 +112,18 @@ fn eval(mut ast: MalType, mut env: RcEnv) -> MalType {
     }
 }
 
+fn read_str(line: &str) -> MalType {
+    Reader::new(line).read_form()
+}
+
 fn print(ast: MalType) {
     println!("{}", ast);
+}
+
+fn rep(line: &str, env: RcEnv) {
+    let ast_in = read_str(line);
+    let ast_out = eval(ast_in, env);
+    print(ast_out);
 }
 
 pub fn run_tty() {
@@ -131,9 +133,9 @@ pub fn run_tty() {
     core_env::init_core_env(&env);
 
     loop {
-        let input = read();
-        let ast = eval(input, env.clone());
-        print(ast);
+        print!("root> ");
+        let line = readline().trim_end();
+        rep(line, env.clone());
     }
 }
 
