@@ -5,10 +5,12 @@ mod env;
 mod reader;
 mod types;
 
+use crate::alloc::string::ToString;
 use crate::driver::ps2_keyboard::readline;
 use crate::{print, println};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
+use alloc::string::String;
 use core::cell::RefCell;
 use env::{Env, RcEnv};
 use reader::Reader;
@@ -116,14 +118,44 @@ fn read_str(line: &str) -> MalType {
     Reader::new(line).read_form()
 }
 
-fn print(ast: MalType) {
-    println!("{}", ast);
+fn pr_str(ast: &MalType, print_readably: bool) -> String {
+    match ast {
+        MalType::Number(num) => num.to_string(),
+        MalType::Symbol(sym) => sym.to_string(),
+        MalType::List(list) => {
+            alloc::format!(
+                "({})",
+                list.iter()
+                    .map(|ast| pr_str(ast, print_readably))
+                    .intersperse(' '.to_string())
+                    .collect::<String>()
+            )
+        }
+        MalType::Func { .. } => "#<function>".to_string(),
+        MalType::Builtin { .. } => "#<builtin>".to_string(),
+        MalType::Nil => "nil".to_string(),
+        MalType::Bool(true) => "true".to_string(),
+        MalType::Bool(false) => "false".to_string(),
+        MalType::String(string) => {
+            if print_readably {
+                alloc::format!("\"{}\"", string)
+            } else {
+                //TODO: Escape special chars
+                string.clone()
+            }
+        }
+    }
 }
 
-fn rep(line: &str, env: RcEnv) {
-    let ast_in = read_str(line);
+fn print(ast: &MalType) {
+    println!("{}", pr_str(ast, true));
+}
+
+fn rep(input: &str, env: RcEnv) {
+    let ast_in = read_str(input);
     let ast_out = eval(ast_in, env);
-    print(ast_out);
+    //pr_str(ast_out, true)
+    print(&ast_out);
 }
 
 pub fn run_tty() {
@@ -134,8 +166,9 @@ pub fn run_tty() {
 
     loop {
         print!("root> ");
-        let line = readline().trim_end();
-        rep(line, env.clone());
+        let input = readline().trim_end();
+        rep(input, env.clone());
+        //println!("{}", output);
     }
 }
 

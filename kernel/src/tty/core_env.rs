@@ -25,6 +25,14 @@ pub fn init_core_env(env: &RcEnv) {
         },
     );
     env.borrow_mut().set(
+        "str",
+        MalType::Builtin {
+            eval: str_builtin,
+            args: Box::new(MalType::List(vec![MalType::Symbol("&".to_string())])),
+            env: env.clone(),
+        },
+    );
+    env.borrow_mut().set(
         "shutdown",
         MalType::Builtin {
             eval: shutdown,
@@ -143,7 +151,7 @@ fn core_div(env: &RcEnv) -> MalType {
 }
 
 fn core_prn(env: &RcEnv) -> MalType {
-    super::print(env.borrow().get("a").expect("symbol not found in env"));
+    super::print(&env.borrow().get("a").expect("symbol not found in env"));
     MalType::Nil
 }
 
@@ -239,6 +247,14 @@ fn write_to_file(env: &RcEnv) -> MalType {
         MalType::Nil
     } else {
         panic!("write-to-file: Expected a string argument");
+    }
+}
+
+fn str_builtin(env: &RcEnv) -> MalType {
+    if let Some(MalType::List(list)) = env.borrow().get("&") {
+        MalType::String(list.iter().map(|ast| super::pr_str(ast, false)).collect())
+    } else {
+        unreachable!();
     }
 }
 
