@@ -51,16 +51,20 @@ pub struct Entry {
     sector: usize,
 }
 
-struct Directory {
+pub struct ReadDir {
     lba: usize,
 }
-impl Directory {
-    pub fn new(lba: usize) -> Directory {
-        Directory { lba }
+
+impl ReadDir {
+    pub fn new(lba: usize) -> ReadDir {
+        ReadDir { lba }
+    }
+    pub fn root() -> ReadDir {
+        ReadDir::new(fs_start_lba())
     }
 }
 
-impl Iterator for Directory {
+impl Iterator for ReadDir {
     type Item = Entry;
     fn next(&mut self) -> Option<Self::Item> {
         Entry::from_sector(self.lba).map(|entry| {
@@ -95,6 +99,12 @@ impl Entry {
     pub fn get_sector(&self) -> usize {
         self.sector
     }
+
+    pub fn get_name(&self) -> &str {
+        let cstr = &self.name;
+        let len = cstr.iter().position(|c| c == &b'\0').unwrap_or(cstr.len());
+        str::from_utf8(&cstr[..len]).expect("Could not parse Cstring")
+    }
 }
 
 impl Default for Entry {
@@ -122,20 +132,15 @@ impl Default for Entry {
     }
 }
 
-fn str_from_cstring(cstr: &[u8]) -> &str {
-    let len = cstr.iter().position(|c| c == &b'\0').unwrap_or(cstr.len());
-    str::from_utf8(&cstr[..len]).expect("Could not parse Cstring")
-}
-
 pub fn ls() {
-    let dir = Directory::new(fs_start_lba());
+    let dir = ReadDir::root();
     for entry in dir {
-        crate::println!("{}", str_from_cstring(&entry.name));
+        crate::println!("{}", entry.get_name());
     }
 }
 
 pub fn create_file(name: &str) -> Entry {
-    let lba = Directory::new(fs_start_lba())
+    let lba = ReadDir::root()
         .last()
         .map(|entry| entry.sector + 1 + (entry.size + BLOCK_SIZE - 1) / BLOCK_SIZE)
         .unwrap_or_else(fs_start_lba);
@@ -146,7 +151,7 @@ pub fn create_file(name: &str) -> Entry {
 }
 
 pub fn open(filename: &str) -> Option<Entry> {
-    Directory::new(fs_start_lba()).find(|entry| str_from_cstring(&entry.name) == filename)
+    ReadDir::root().find(|entry| entry.get_name() == filename)
 }
 
 /// A helper function that translate a given input to a &[u8]

@@ -1,8 +1,6 @@
-use super::env::Env;
+use super::env::RcEnv;
 use alloc::boxed::Box;
-use alloc::rc::Rc;
 use alloc::{string::String, vec::Vec};
-use core::cell::RefCell;
 use core::fmt::{self, Display, Formatter};
 
 #[derive(Clone)]
@@ -11,17 +9,17 @@ pub enum MalType {
     Symbol(String),
     List(Vec<MalType>),
     Bool(bool),
+    String(String),
     Nil,
     Func {
         args: Box<MalType>,
         body: Box<MalType>,
-        env: Rc<RefCell<Env>>,
+        env: RcEnv,
     },
     Builtin {
-        eval: fn(ast: &MalType, env: &Rc<RefCell<Env>>) -> MalType,
+        eval: fn(env: &RcEnv) -> MalType,
         args: Box<MalType>,
-        body: Box<MalType>,
-        env: Rc<RefCell<Env>>,
+        env: RcEnv,
     },
 }
 
@@ -44,6 +42,7 @@ impl Display for MalType {
             MalType::Nil => write!(f, "nil"),
             MalType::Bool(true) => write!(f, "true"),
             MalType::Bool(false) => write!(f, "false"),
+            MalType::String(string) => write!(f, "\"{}\"", string),
         }
     }
 }
