@@ -75,8 +75,22 @@ pub fn init_core_env(env: &RcEnv) {
             env: env.clone(),
         },
     );
+    env.borrow_mut().set(
+        "eval",
+        MalType::Builtin {
+            eval,
+            args: Box::new(MalType::List(vec![MalType::Symbol("exp".to_string())])),
+            env: env.clone(),
+        },
+    );
 
     super::rep("(def! not (fn* (a) (if a false true)))", env.clone());
+    /*
+     super::rep(
+        "(def! load-file (fn* (f) (eval (read-string (str \"(do \" (slurp f) \"\nnil)\")))))",
+        env.clone(),
+    );
+    */
 }
 
 fn init_num_op(eval_func: fn(env: &RcEnv) -> MalType, env: &RcEnv) -> MalType {
@@ -248,6 +262,9 @@ fn write_to_file(env: &RcEnv) -> MalType {
     } else {
         panic!("write-to-file: Expected a string argument");
     }
+}
+fn eval(env: &RcEnv) -> MalType {
+    super::eval(env.borrow().get("exp").unwrap(), env.clone())
 }
 
 fn str_builtin(env: &RcEnv) -> MalType {
