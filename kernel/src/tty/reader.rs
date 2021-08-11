@@ -16,7 +16,7 @@ impl<'a> Reader<'a> {
             index: 0,
         };
         while !reader.line.is_empty() {
-            let token = reader.tokenize().to_string();
+            let token = reader.tokenize();
             reader.tokens.push(token);
         }
         reader
@@ -72,7 +72,7 @@ impl<'a> Reader<'a> {
 
     /// LEXER
 
-    fn tokenize(&mut self) -> &str {
+    fn tokenize(&mut self) -> String {
         self.trim_whitespace();
 
         if self.line.len() >= 2 && &self.line[..2] == "~@" {
@@ -89,36 +89,52 @@ impl<'a> Reader<'a> {
         }
     }
 
-    fn tokenize_string(&mut self) -> &str {
-        let mut i = 1;
-        while i < self.line.len() {
-            if self.line.len() >= 2 && &self.line[i..i + 2] == "\\\"" {
-                i += 1;
-            } else if &self.line[i..i + 1] == "\"" {
-                i += 1;
+    fn tokenize_string(&mut self) -> String {
+        let mut string = String::from('"');
+        let mut escaped = false;
+        for (i, c) in self.line.chars().enumerate().skip(1) {
+            if escaped {
+                match c {
+                    'n' => string.push('\n'),
+                    '"' => string.push('\"'),
+                    '\\' => string.push('\\'),
+                    c => {
+                        string.push('\\');
+                        string.push(c)
+                    }
+                }
+                escaped = false;
+                continue;
+            }
+            if c == '\\' {
+                escaped = true;
+                continue;
+            }
+            string.push(c);
+            if c == '"' {
+                self.line = &self.line[i + 1..];
                 break;
             }
-            i += 1;
         }
-        self.extract_token(i)
+        string
     }
 
     fn trim_whitespace(&mut self) {
         while let Some(c) = self.line.chars().next() {
             match c {
-                ' ' | '\t' | ',' => self.line = &self.line[1..],
+                ' ' | '\t' | '\n' | ',' => self.line = &self.line[1..],
                 _ => break,
             }
         }
     }
 
-    fn extract_token(&mut self, end_index: usize) -> &str {
-        let token = &self.line[..end_index];
-        self.line = &self.line[end_index..];
-        token
+    fn extract_token(&mut self, end_index: usize) -> String {
+        let (token, remaning) = self.line.split_at(end_index);
+        self.line = remaning;
+        token.to_string()
     }
 
-    fn lex_special(&mut self) -> &str {
+    fn lex_special(&mut self) -> String {
         let mut i = 0;
         while i < self.line.len() {
             match &self.line[i..i + 1] {
