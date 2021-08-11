@@ -152,11 +152,10 @@ fn print(ast: &MalType) {
     println!("{}", pr_str(ast, true));
 }
 
-fn rep(input: &str, env: RcEnv) {
+fn rep(input: &str, env: RcEnv) -> String {
     let ast_in = read_str(input);
     let ast_out = eval(ast_in, env);
-    //pr_str(ast_out, true)
-    print(&ast_out);
+    pr_str(&ast_out, true)
 }
 
 pub fn run_tty() {
@@ -168,8 +167,8 @@ pub fn run_tty() {
     loop {
         print!("root> ");
         let input = readline().trim_end();
-        rep(input, env.clone());
-        //println!("{}", output);
+        let output = rep(input, env.clone());
+        println!("{}", output);
     }
 }
 
