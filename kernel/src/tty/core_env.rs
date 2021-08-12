@@ -2,100 +2,46 @@ use super::env::RcEnv;
 use super::types::MalType;
 use crate::file_system::File;
 use crate::{exit_qemu, QemuExitCode};
-use alloc::boxed::Box;
-use alloc::{string::*, vec};
+use alloc::string::String;
 
 pub fn init_core_env(env: &RcEnv) {
-    env.borrow_mut().set("+", init_num_op(core_add, env));
-    env.borrow_mut().set("-", init_num_op(core_sub, env));
-    env.borrow_mut().set("*", init_num_op(core_mul, env));
-    env.borrow_mut().set("/", init_num_op(core_div, env));
-    env.borrow_mut().set("<", init_num_op(core_lt, env));
-    env.borrow_mut().set("<=", init_num_op(core_le, env));
-    env.borrow_mut().set("=", init_num_op(core_eq, env));
-    env.borrow_mut().set("=>", init_num_op(core_ge, env));
-    env.borrow_mut().set(">", init_num_op(core_gt, env));
-    env.borrow_mut().set("list", init_num_op(core_list, env));
-    env.borrow_mut().set(
-        "prn",
-        MalType::Builtin {
-            eval: core_prn,
-            args: Box::new(MalType::List(vec![MalType::Symbol("a".to_string())])),
-            env: env.clone(),
-        },
-    );
-    env.borrow_mut().set(
-        "str",
-        MalType::Builtin {
-            eval: str_builtin,
-            args: Box::new(MalType::List(vec![MalType::Symbol("&".to_string())])),
-            env: env.clone(),
-        },
-    );
-    env.borrow_mut().set(
-        "shutdown",
-        MalType::Builtin {
-            eval: shutdown,
-            args: Box::new(MalType::List(vec![])),
-            env: env.clone(),
-        },
-    );
-    env.borrow_mut().set(
-        "read-string",
-        MalType::Builtin {
-            eval: read_string,
-            args: Box::new(MalType::List(vec![MalType::Symbol("a".to_string())])),
-            env: env.clone(),
-        },
-    );
-    env.borrow_mut().set(
-        "slurp",
-        MalType::Builtin {
-            eval: slurp,
-            args: Box::new(MalType::List(vec![MalType::Symbol("a".to_string())])),
-            env: env.clone(),
-        },
-    );
-    env.borrow_mut().set(
-        "ls",
-        MalType::Builtin {
-            eval: ls,
-            args: Box::new(MalType::List(vec![])),
-            env: env.clone(),
-        },
-    );
-    env.borrow_mut().set(
-        "write-to-file",
-        MalType::Builtin {
-            eval: write_to_file,
-            args: Box::new(MalType::List(vec![
-                MalType::Symbol("filename".to_string()),
-                MalType::Symbol("content".to_string()),
-            ])),
-            env: env.clone(),
-        },
-    );
-    env.borrow_mut().set(
-        "eval",
-        MalType::Builtin {
-            eval,
-            args: Box::new(MalType::List(vec![MalType::Symbol("exp".to_string())])),
-            env: env.clone(),
-        },
-    );
-
+    init_builtins(env);
     super::rep("(def! not (fn* (a) (if a false true)))", env.clone());
     super::rep(
         "(def! load-file (fn* (f) (eval (read-string (str \"(do \" (slurp f) \"\nnil)\")))))",
         env.clone(),
     );
 }
-
-fn init_num_op(eval_func: fn(env: &RcEnv) -> MalType, env: &RcEnv) -> MalType {
-    MalType::Builtin {
-        eval: eval_func,
-        args: Box::new(MalType::List(vec![MalType::Symbol("&".to_string())])),
-        env: env.clone(),
+fn init_builtins(env: &RcEnv) {
+    let builtins = [
+        ("+", MalType::new_builtin(core_add, &["&"], env)),
+        ("-", MalType::new_builtin(core_sub, &["&"], env)),
+        ("*", MalType::new_builtin(core_mul, &["&"], env)),
+        ("/", MalType::new_builtin(core_div, &["&"], env)),
+        ("<", MalType::new_builtin(core_lt, &["&"], env)),
+        ("<=", MalType::new_builtin(core_le, &["&"], env)),
+        ("=", MalType::new_builtin(core_eq, &["&"], env)),
+        ("=>", MalType::new_builtin(core_ge, &["&"], env)),
+        (">", MalType::new_builtin(core_gt, &["&"], env)),
+        ("list", MalType::new_builtin(core_list, &["&"], env)),
+        ("prn", MalType::new_builtin(core_prn, &["a"], env)),
+        ("str", MalType::new_builtin(core_str, &["&"], env)),
+        ("shutdown", MalType::new_builtin(shutdown, &[], env)),
+        (
+            "read-string",
+            MalType::new_builtin(read_string, &["a"], env),
+        ),
+        ("slurp", MalType::new_builtin(slurp, &["filename"], env)),
+        ("ls", MalType::new_builtin(ls, &[], env)),
+        (
+            "write-to-file",
+            MalType::new_builtin(write_to_file, &["filename", "content"], env),
+        ),
+        ("eval", MalType::new_builtin(eval, &["exp"], env)),
+    ];
+    let mut env_mut = env.borrow_mut();
+    for (builtin_name, name) in builtins {
+        env_mut.set(builtin_name, name);
     }
 }
 
@@ -234,7 +180,7 @@ fn read_string(env: &RcEnv) -> MalType {
 }
 
 fn slurp(env: &RcEnv) -> MalType {
-    if let Some(MalType::String(filename)) = env.borrow().get("a") {
+    if let Some(MalType::String(filename)) = env.borrow().get("filename") {
         let mut file = File::open(&filename).expect("Could not open file");
         let mut content = String::with_capacity(file.get_size());
         for _ in 0..file.get_size() {
@@ -265,7 +211,7 @@ fn eval(env: &RcEnv) -> MalType {
     super::eval(env.borrow().get("exp").unwrap(), env.clone())
 }
 
-fn str_builtin(env: &RcEnv) -> MalType {
+fn core_str(env: &RcEnv) -> MalType {
     if let Some(MalType::List(list)) = env.borrow().get("&") {
         MalType::String(list.iter().map(|ast| super::pr_str(ast, false)).collect())
     } else {

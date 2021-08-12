@@ -1,5 +1,6 @@
 use super::env::RcEnv;
 use alloc::boxed::Box;
+use alloc::string::ToString;
 use alloc::{string::String, vec::Vec};
 use core::fmt::{self, Display, Formatter};
 
@@ -21,6 +22,20 @@ pub enum MalType {
         args: Box<MalType>,
         env: RcEnv,
     },
+}
+
+impl MalType {
+    pub fn new_builtin(eval: fn(env: &RcEnv) -> MalType, args: &[&str], env: &RcEnv) -> MalType {
+        MalType::Builtin {
+            eval,
+            args: Box::new(MalType::List(
+                args.iter()
+                    .map(|arg| MalType::Symbol(arg.to_string()))
+                    .collect(),
+            )),
+            env: env.clone(),
+        }
+    }
 }
 
 impl Display for MalType {
