@@ -29,21 +29,24 @@ fn init_builtins(env: &RcEnv) {
         ("list", MalType::new_builtin(core_list, &["&"], env)),
         ("first", MalType::new_builtin(core_first, &["list"], env)),
         ("rest", MalType::new_builtin(core_rest, &["list"], env)),
-        //
-        ("prn", MalType::new_builtin(core_prn, &["a"], env)),
+        ("cons", MalType::new_builtin(core_cons, &["x", "seq"], env)),
+        // String
         ("str", MalType::new_builtin(core_str, &["&"], env)),
-        ("shutdown", MalType::new_builtin(shutdown, &[], env)),
+        // IO
+        ("prn", MalType::new_builtin(core_prn, &["a"], env)),
         (
             "read-string",
             MalType::new_builtin(read_string, &["a"], env),
         ),
         ("slurp", MalType::new_builtin(slurp, &["filename"], env)),
-        ("ls", MalType::new_builtin(ls, &[], env)),
         (
             "spit",
             MalType::new_builtin(spit, &["filename", "content"], env),
         ),
+        // Misc
         ("eval", MalType::new_builtin(eval, &["exp"], env)),
+        ("ls", MalType::new_builtin(ls, &[], env)),
+        ("shutdown", MalType::new_builtin(shutdown, &[], env)),
     ];
     let mut env_mut = env.borrow_mut();
     for (builtin_name, name) in builtins {
@@ -176,7 +179,17 @@ fn core_rest(env: &RcEnv) -> MalType {
             list.remove(0);
             MalType::List(list)
         }
-        _ => panic!("first: Unexpected argument type"),
+        _ => panic!("rest: Unexpected argument type"),
+    }
+}
+
+fn core_cons(env: &RcEnv) -> MalType {
+    match (get_arg(env, "x"), get_arg(env, "seq")) {
+        (x, MalType::List(mut list)) => {
+            list.insert(0, x);
+            MalType::List(list)
+        }
+        _ => panic!("cons: Unexpected argument type"),
     }
 }
 
