@@ -151,7 +151,13 @@ pub fn create_file(name: &str) -> Entry {
 }
 
 pub fn open(filename: &str) -> Option<Entry> {
-    ReadDir::root().find(|entry| entry.get_name() == filename)
+    if filename == "/" {
+        let mut entry = Entry::new("/", fs_start_lba());
+        entry.type_flag = TypeFlag::Directory;
+        Some(entry)
+    } else {
+        ReadDir::root().find(|entry| entry.get_name() == filename)
+    }
 }
 
 /// A helper function that translate a given input to a &[u8]

@@ -1,6 +1,6 @@
 use super::env::RcEnv;
 use super::types::MalType;
-use crate::file_system::File;
+use crate::file_system::{read_dir, File};
 use crate::{exit_qemu, QemuExitCode};
 use alloc::rc::Rc;
 use alloc::string::String;
@@ -46,6 +46,10 @@ fn init_builtins(env: &RcEnv) {
             MalType::new_builtin(spit, &["filename", "content"], env),
         ),
         ("File", MalType::new_builtin(file, &["filename"], env)),
+        (
+            ".listFiles",
+            MalType::new_builtin(list_files, &["file"], env),
+        ),
         // Misc
         ("eval", MalType::new_builtin(eval, &["exp"], env)),
         ("ls", MalType::new_builtin(ls, &[], env)),
@@ -256,6 +260,19 @@ fn file(env: &RcEnv) -> MalType {
         MalType::File(Rc::new(RefCell::new(file)))
     } else {
         panic!("File: Invalid argument type");
+    }
+}
+
+fn list_files(env: &RcEnv) -> MalType {
+    if let MalType::File(file) = get_arg(env, "file") {
+        let entries = read_dir(file.borrow().get_path()).unwrap();
+        MalType::List(
+            entries
+                .map(|entry| MalType::File(Rc::new(RefCell::new(File::new(entry)))))
+                .collect(),
+        )
+    } else {
+        panic!(".listFiles: Invalid argument type");
     }
 }
 

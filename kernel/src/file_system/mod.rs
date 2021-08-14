@@ -6,7 +6,7 @@ pub use ustar::ls;
 use ustar::{Entry, ReadDir, BLOCK_SIZE};
 
 pub fn read_dir(dir_name: &str) -> Option<ReadDir> {
-    if dir_name == "\"" {
+    if dir_name == "/" {
         Some(ReadDir::root())
     } else {
         None
@@ -19,7 +19,7 @@ pub struct File {
 }
 
 impl File {
-    fn new(entry: Entry) -> File {
+    pub fn new(entry: Entry) -> File {
         File { index: 0, entry }
     }
     pub fn create(filename: &str) -> Option<File> {
@@ -76,6 +76,9 @@ impl File {
 
     pub fn get_size(&self) -> usize {
         self.entry.size
+    }
+    pub fn get_path(&self) -> &str {
+        &self.entry.get_name()
     }
 }
 
