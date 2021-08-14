@@ -13,8 +13,8 @@ pub enum MalType {
     String(String),
     Nil,
     Func {
-        args: Box<MalType>,
         body: Box<MalType>,
+        args: Box<MalType>,
         env: RcEnv,
     },
     Builtin {
@@ -43,3 +43,22 @@ impl Display for MalType {
         writeln!(f, "{}", super::pr_str(self, true))
     }
 }
+
+impl PartialEq for MalType {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (MalType::Nil, MalType::Nil) => true,
+            (MalType::Number(x), MalType::Number(y)) => x == y,
+            (MalType::Bool(x), MalType::Bool(y)) => x == y,
+            (MalType::String(x), MalType::String(y)) => x == y,
+            (MalType::Symbol(x), MalType::Symbol(y)) => x == y,
+            (MalType::List(x), MalType::List(y)) => x == y,
+            (MalType::Func { .. }, MalType::Func { .. })
+            | (MalType::Builtin { .. }, MalType::Builtin { .. }) => {
+                panic!("Equality comparison not supported for Funcs and Builtins")
+            }
+            _ => false,
+        }
+    }
+}
+impl Eq for MalType {}

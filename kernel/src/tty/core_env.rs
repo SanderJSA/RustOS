@@ -15,6 +15,7 @@ pub fn init_core_env(env: &RcEnv) {
 }
 fn init_builtins(env: &RcEnv) {
     let builtins = [
+        // Operators
         ("+", MalType::new_builtin(core_add, &["&"], env)),
         ("-", MalType::new_builtin(core_sub, &["&"], env)),
         ("*", MalType::new_builtin(core_mul, &["&"], env)),
@@ -24,7 +25,9 @@ fn init_builtins(env: &RcEnv) {
         ("=", MalType::new_builtin(core_eq, &["&"], env)),
         ("=>", MalType::new_builtin(core_ge, &["&"], env)),
         (">", MalType::new_builtin(core_gt, &["&"], env)),
+        // List
         ("list", MalType::new_builtin(core_list, &["&"], env)),
+        ("first", MalType::new_builtin(core_first, &["list"], env)),
         ("prn", MalType::new_builtin(core_prn, &["a"], env)),
         ("str", MalType::new_builtin(core_str, &["&"], env)),
         ("shutdown", MalType::new_builtin(shutdown, &[], env)),
