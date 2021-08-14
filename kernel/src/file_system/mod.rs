@@ -78,7 +78,7 @@ impl File {
         self.entry.size
     }
     pub fn get_path(&self) -> &str {
-        &self.entry.get_name()
+        self.entry.get_name()
     }
 }
 

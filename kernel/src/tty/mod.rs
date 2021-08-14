@@ -48,6 +48,9 @@ fn eval(mut ast: MalType, mut env: RcEnv) -> MalType {
         match ast {
             MalType::List(ref list) => match list.as_slice() {
                 [] => return eval_ast(ast, env),
+                [MalType::Symbol(sym), arg] if sym == "quote" => {
+                    return arg.clone();
+                }
                 [MalType::Symbol(sym), MalType::Symbol(key), value] if sym == "def!" => {
                     let value = eval(value.clone(), env.clone());
                     env.borrow_mut().set(key, value.clone());
