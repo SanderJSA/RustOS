@@ -5,12 +5,11 @@ mod env;
 mod reader;
 mod types;
 
-use crate::alloc::string::ToString;
 use crate::driver::ps2_keyboard::readline;
 use crate::{print, println};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use core::cell::RefCell;
 use env::{Env, RcEnv};
 use reader::Reader;
@@ -28,6 +27,38 @@ fn greet_msg() {
 Howdy, welcome to RustOS",
         1 as char
     );
+}
+
+fn quasiquote(ast: MalType) -> MalType {
+    match ast {
+        MalType::List(list) => match list.as_slice() {
+            [MalType::Symbol(sym), arg] if sym == "unquote" => arg.clone(),
+            _ => {
+                let mut res = alloc::vec![];
+                for elt in list.into_iter().rev() {
+                    if let MalType::List(ref el_list) = elt {
+                        if el_list.get(0) == Some(&MalType::Symbol(String::from("splice-unquote")))
+                        {
+                            res = alloc::vec![
+                                MalType::Symbol("conj".to_string()),
+                                el_list[1].clone(),
+                                MalType::List(res)
+                            ];
+                            continue;
+                        }
+                    }
+
+                    res = alloc::vec![
+                        MalType::Symbol("cons".to_string()),
+                        quasiquote(elt),
+                        MalType::List(res)
+                    ];
+                }
+                MalType::List(res)
+            }
+        },
+        ast => MalType::List(alloc::vec![MalType::Symbol("quote".to_string()), ast]),
+    }
 }
 
 fn eval_ast(ast: MalType, env: RcEnv) -> MalType {
@@ -83,6 +114,9 @@ fn eval(mut ast: MalType, mut env: RcEnv) -> MalType {
                         _ => success.clone(),
                     }
                 }
+                [MalType::Symbol(sym), arg] if sym == "quasiquote" => {
+                    ast = quasiquote(arg.clone());
+                }
                 _ => {
                     if let MalType::List(list) = eval_ast(ast, env) {
                         match list.as_slice() {
@@ -104,7 +138,7 @@ fn eval(mut ast: MalType, mut env: RcEnv) -> MalType {
                                 env = Rc::new(RefCell::new(Env::new(Some(outer.clone()))));
                                 env.borrow_mut().bind(args, tail);
                             }
-                            _ => panic!("Invalid function"),
+                            list => panic!("Invalid function: {}", list[0]),
                         }
                     } else {
                         unreachable!();

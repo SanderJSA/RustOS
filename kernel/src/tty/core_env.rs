@@ -32,6 +32,7 @@ fn init_builtins(env: &RcEnv) {
         ("first", MalType::new_builtin(core_first, &["list"], env)),
         ("rest", MalType::new_builtin(core_rest, &["list"], env)),
         ("cons", MalType::new_builtin(core_cons, &["x", "seq"], env)),
+        ("conj", MalType::new_builtin(core_conj, &["coll", "x"], env)),
         // String
         ("str", MalType::new_builtin(core_str, &["&"], env)),
         // IO
@@ -195,6 +196,16 @@ fn core_cons(env: &RcEnv) -> MalType {
         (x, MalType::List(mut list)) => {
             list.insert(0, x);
             MalType::List(list)
+        }
+        _ => panic!("cons: Unexpected argument type"),
+    }
+}
+
+fn core_conj(env: &RcEnv) -> MalType {
+    match (get_arg(env, "coll"), get_arg(env, "x")) {
+        (MalType::List(mut coll), MalType::List(x)) => {
+            coll.extend(x);
+            MalType::List(coll)
         }
         _ => panic!("cons: Unexpected argument type"),
     }
