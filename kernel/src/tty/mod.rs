@@ -32,11 +32,10 @@ Howdy, welcome to RustOS",
 
 fn eval_ast(ast: MalType, env: RcEnv) -> MalType {
     match ast {
-        MalType::Symbol(sym) => env.borrow().get(&sym).expect(&alloc::format!(
-            "{} not found in env: {}",
-            sym,
-            env.borrow()
-        )),
+        MalType::Symbol(sym) => env
+            .borrow()
+            .get(&sym)
+            .unwrap_or_else(|| panic!("{} not found in env: {}", sym, env.borrow())),
         MalType::List(list) => {
             MalType::List(list.into_iter().map(|val| eval(val, env.clone())).collect())
         }
