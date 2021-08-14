@@ -1,7 +1,10 @@
 use super::env::RcEnv;
+use crate::file_system::File;
 use alloc::boxed::Box;
+use alloc::rc::Rc;
 use alloc::string::ToString;
 use alloc::{string::String, vec::Vec};
+use core::cell::RefCell;
 use core::fmt::{self, Display, Formatter};
 
 #[derive(Clone)]
@@ -22,6 +25,7 @@ pub enum MalType {
         args: Box<MalType>,
         env: RcEnv,
     },
+    File(Rc<RefCell<File>>),
 }
 
 impl MalType {

@@ -2,8 +2,10 @@ use super::env::RcEnv;
 use super::types::MalType;
 use crate::file_system::File;
 use crate::{exit_qemu, QemuExitCode};
+use alloc::rc::Rc;
 use alloc::string::String;
 use alloc::vec::Vec;
+use core::cell::RefCell;
 
 pub fn init_core_env(env: &RcEnv) {
     init_builtins(env);
@@ -43,6 +45,7 @@ fn init_builtins(env: &RcEnv) {
             "spit",
             MalType::new_builtin(spit, &["filename", "content"], env),
         ),
+        ("File", MalType::new_builtin(file, &["filename"], env)),
         // Misc
         ("eval", MalType::new_builtin(eval, &["exp"], env)),
         ("ls", MalType::new_builtin(ls, &[], env)),
@@ -245,6 +248,15 @@ fn core_str(env: &RcEnv) -> MalType {
             .map(|ast| super::pr_str(ast, false))
             .collect(),
     )
+}
+
+fn file(env: &RcEnv) -> MalType {
+    if let MalType::String(filename) = get_arg(env, "filename") {
+        let file = File::open(&filename).expect("Could not open file");
+        MalType::File(Rc::new(RefCell::new(file)))
+    } else {
+        panic!("File: Invalid argument type");
+    }
 }
 
 //TEMP

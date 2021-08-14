@@ -145,6 +145,7 @@ fn pr_str(ast: &MalType, print_readably: bool) -> String {
                 string.clone()
             }
         }
+        MalType::File(_) => "#<File>".to_string(),
     }
 }
 
