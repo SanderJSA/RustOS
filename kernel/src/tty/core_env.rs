@@ -28,6 +28,8 @@ fn init_builtins(env: &RcEnv) {
         // List
         ("list", MalType::new_builtin(core_list, &["&"], env)),
         ("first", MalType::new_builtin(core_first, &["list"], env)),
+        ("rest", MalType::new_builtin(core_rest, &["list"], env)),
+        //
         ("prn", MalType::new_builtin(core_prn, &["a"], env)),
         ("str", MalType::new_builtin(core_str, &["&"], env)),
         ("shutdown", MalType::new_builtin(shutdown, &[], env)),
@@ -163,6 +165,17 @@ fn core_first(env: &RcEnv) -> MalType {
     match get_arg(env, "list") {
         MalType::Nil => MalType::Nil,
         MalType::List(list) => list.into_iter().next().unwrap_or(MalType::Nil),
+        _ => panic!("first: Unexpected argument type"),
+    }
+}
+
+fn core_rest(env: &RcEnv) -> MalType {
+    match get_arg(env, "list") {
+        MalType::Nil => MalType::List(alloc::vec![]),
+        MalType::List(mut list) => {
+            list.remove(0);
+            MalType::List(list)
+        }
         _ => panic!("first: Unexpected argument type"),
     }
 }
