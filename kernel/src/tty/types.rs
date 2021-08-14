@@ -40,6 +40,22 @@ impl MalType {
             env: env.clone(),
         }
     }
+
+    pub fn quote() -> MalType {
+        MalType::Symbol("quote".to_string())
+    }
+
+    pub fn quasiquote() -> MalType {
+        MalType::Symbol("quasiquote".to_string())
+    }
+
+    pub fn unquote() -> MalType {
+        MalType::Symbol("unquote".to_string())
+    }
+
+    pub fn splice_unquote() -> MalType {
+        MalType::Symbol("splice-unquote".to_string())
+    }
 }
 
 impl Display for MalType {

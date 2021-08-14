@@ -60,6 +60,10 @@ impl<'a> Reader<'a> {
             string if string.starts_with('\"') => {
                 MalType::String(string[1..string.len() - 1].to_string())
             }
+            "'" => MalType::List(alloc::vec![MalType::quote(), self.read_form()]),
+            "`" => MalType::List(alloc::vec![MalType::quasiquote(), self.read_form()]),
+            "~" => MalType::List(alloc::vec![MalType::unquote(), self.read_form()]),
+            "~@" => MalType::List(alloc::vec![MalType::splice_unquote(), self.read_form()]),
             token => {
                 if let Ok(num) = token.parse() {
                     MalType::Number(num)

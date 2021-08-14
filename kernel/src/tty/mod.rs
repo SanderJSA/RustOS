@@ -37,8 +37,7 @@ fn quasiquote(ast: MalType) -> MalType {
                 let mut res = alloc::vec![];
                 for elt in list.into_iter().rev() {
                     if let MalType::List(ref el_list) = elt {
-                        if el_list.get(0) == Some(&MalType::Symbol(String::from("splice-unquote")))
-                        {
+                        if el_list.get(0) == Some(&MalType::splice_unquote()) {
                             res = alloc::vec![
                                 MalType::Symbol("conj".to_string()),
                                 el_list[1].clone(),
@@ -57,7 +56,7 @@ fn quasiquote(ast: MalType) -> MalType {
                 MalType::List(res)
             }
         },
-        ast => MalType::List(alloc::vec![MalType::Symbol("quote".to_string()), ast]),
+        ast => MalType::List(alloc::vec![MalType::quote(), ast]),
     }
 }
 
