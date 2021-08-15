@@ -107,10 +107,6 @@ fn macroexpand(mut ast: MalType, env: &RcEnv) -> MalType {
 fn eval(mut ast: MalType, mut env: RcEnv) -> MalType {
     loop {
         ast = macroexpand(ast, &env);
-        if let MalType::List(_) = ast {
-        } else {
-            ast = eval_ast(ast, env.clone());
-        }
         match ast {
             MalType::List(ref list) => match list.as_slice() {
                 [] => return eval_ast(ast, env),
