@@ -15,7 +15,16 @@ pub fn init_core_env(env: &RcEnv) {
         env.clone(),
     );
 
-    super::rep("(defmacro! cond (fn* (& xs) (if (> (count xs) 0) (list 'if (first xs) (if (> (count xs) 1) (nth xs 1) (throw \"odd number of forms to cond\")) (cons 'cond (rest (rest xs)))))))", env.clone());
+    super::rep(
+        "(defmacro! cond (fn* (& xs)
+            (if (> (count xs) 0)
+                (list 'if (first xs)
+                    (if (> (count xs) 1)
+                        (nth xs 1)
+                        (throw \"odd number of forms to cond\"))
+                    (cons 'cond (rest (rest xs)))))))",
+        env.clone(),
+    );
 }
 fn init_builtins(env: &RcEnv) {
     let builtins = [
@@ -131,7 +140,7 @@ fn core_div(env: &RcEnv) -> MalType {
 }
 
 fn core_prn(env: &RcEnv) -> MalType {
-    super::print(&get_arg(env, "vals"));
+    super::print(&get_arg(env, "a"));
     MalType::Nil
 }
 
