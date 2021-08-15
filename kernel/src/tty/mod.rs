@@ -64,7 +64,7 @@ fn get_macro(ast: &MalType, env: &RcEnv) -> Option<MalType> {
     if let MalType::List(ref list) = ast {
         if let Some(MalType::Symbol(sym)) = list.get(0) {
             let env_sym = env.borrow().get(sym);
-            if let Some(MalType::Func { is_macro, .. }) = env_sym {
+            if let Some(MalType::Func { is_macro: true, .. }) = env_sym {
                 return env_sym;
             }
         }

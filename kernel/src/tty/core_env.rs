@@ -20,23 +20,23 @@ pub fn init_core_env(env: &RcEnv) {
 fn init_builtins(env: &RcEnv) {
     let builtins = [
         // Operators
-        ("+", MalType::new_builtin(core_add, &["&"], env)),
-        ("-", MalType::new_builtin(core_sub, &["&"], env)),
-        ("*", MalType::new_builtin(core_mul, &["&"], env)),
-        ("/", MalType::new_builtin(core_div, &["&"], env)),
-        ("<", MalType::new_builtin(core_lt, &["&"], env)),
-        ("<=", MalType::new_builtin(core_le, &["&"], env)),
-        ("=", MalType::new_builtin(core_eq, &["&"], env)),
-        ("=>", MalType::new_builtin(core_ge, &["&"], env)),
-        (">", MalType::new_builtin(core_gt, &["&"], env)),
+        ("+", MalType::new_builtin(core_add, &["&", "vals"], env)),
+        ("-", MalType::new_builtin(core_sub, &["&", "vals"], env)),
+        ("*", MalType::new_builtin(core_mul, &["&", "vals"], env)),
+        ("/", MalType::new_builtin(core_div, &["&", "vals"], env)),
+        ("<", MalType::new_builtin(core_lt, &["&", "vals"], env)),
+        ("<=", MalType::new_builtin(core_le, &["&", "vals"], env)),
+        ("=", MalType::new_builtin(core_eq, &["&", "vals"], env)),
+        ("=>", MalType::new_builtin(core_ge, &["&", "vals"], env)),
+        (">", MalType::new_builtin(core_gt, &["&", "vals"], env)),
         // List
-        ("list", MalType::new_builtin(core_list, &["&"], env)),
+        ("list", MalType::new_builtin(core_list, &["&", "args"], env)),
         ("first", MalType::new_builtin(core_first, &["list"], env)),
         ("rest", MalType::new_builtin(core_rest, &["list"], env)),
         ("cons", MalType::new_builtin(core_cons, &["x", "seq"], env)),
         ("conj", MalType::new_builtin(core_conj, &["coll", "x"], env)),
         // String
-        ("str", MalType::new_builtin(core_str, &["&"], env)),
+        ("str", MalType::new_builtin(core_str, &["&", "args"], env)),
         // IO
         ("prn", MalType::new_builtin(core_prn, &["a"], env)),
         (
@@ -70,8 +70,8 @@ fn get_arg(env: &RcEnv, arg: &str) -> MalType {
         .unwrap_or_else(|| panic!("symbol \"{}\" not found in env", arg))
 }
 
-fn get_variadic(env: &RcEnv) -> Vec<MalType> {
-    if let MalType::List(list) = get_arg(env, "&") {
+fn get_variadic(env: &RcEnv, arg: &str) -> Vec<MalType> {
+    if let MalType::List(list) = get_arg(env, arg) {
         list
     } else {
         unreachable!()
@@ -79,7 +79,7 @@ fn get_variadic(env: &RcEnv) -> Vec<MalType> {
 }
 
 fn core_add(env: &RcEnv) -> MalType {
-    let res = get_variadic(env)
+    let res = get_variadic(env, "vals")
         .iter()
         .map(|value| match value {
             MalType::Number(num) => *num,
@@ -90,7 +90,7 @@ fn core_add(env: &RcEnv) -> MalType {
 }
 
 fn core_sub(env: &RcEnv) -> MalType {
-    let res = get_variadic(env)
+    let res = get_variadic(env, "vals")
         .iter()
         .map(|value| match value {
             MalType::Number(num) => *num,
@@ -102,7 +102,7 @@ fn core_sub(env: &RcEnv) -> MalType {
 }
 
 fn core_mul(env: &RcEnv) -> MalType {
-    let res = get_variadic(env)
+    let res = get_variadic(env, "vals")
         .iter()
         .map(|value| match value {
             MalType::Number(num) => *num,
@@ -114,7 +114,7 @@ fn core_mul(env: &RcEnv) -> MalType {
 }
 
 fn core_div(env: &RcEnv) -> MalType {
-    let res = get_variadic(env)
+    let res = get_variadic(env, "vals")
         .iter()
         .map(|value| match value {
             MalType::Number(num) => *num,
@@ -126,12 +126,12 @@ fn core_div(env: &RcEnv) -> MalType {
 }
 
 fn core_prn(env: &RcEnv) -> MalType {
-    super::print(&get_arg(env, "a"));
+    super::print(&get_arg(env, "vals"));
     MalType::Nil
 }
 
 fn core_lt(env: &RcEnv) -> MalType {
-    if let [MalType::Number(left), MalType::Number(right)] = get_variadic(env).as_slice() {
+    if let [MalType::Number(left), MalType::Number(right)] = get_variadic(env, "vals").as_slice() {
         MalType::Bool(left < right)
     } else {
         panic!("Can only perform comparison on Numbers");
@@ -139,7 +139,7 @@ fn core_lt(env: &RcEnv) -> MalType {
 }
 
 fn core_le(env: &RcEnv) -> MalType {
-    if let [MalType::Number(left), MalType::Number(right)] = get_variadic(env).as_slice() {
+    if let [MalType::Number(left), MalType::Number(right)] = get_variadic(env, "vals").as_slice() {
         MalType::Bool(left <= right)
     } else {
         panic!("Can only perform comparison on Numbers");
@@ -147,7 +147,7 @@ fn core_le(env: &RcEnv) -> MalType {
 }
 
 fn core_eq(env: &RcEnv) -> MalType {
-    if let [MalType::Number(left), MalType::Number(right)] = get_variadic(env).as_slice() {
+    if let [MalType::Number(left), MalType::Number(right)] = get_variadic(env, "vals").as_slice() {
         MalType::Bool(left == right)
     } else {
         panic!("Can only perform comparison on Numbers");
@@ -155,7 +155,7 @@ fn core_eq(env: &RcEnv) -> MalType {
 }
 
 fn core_ge(env: &RcEnv) -> MalType {
-    if let [MalType::Number(left), MalType::Number(right)] = get_variadic(env).as_slice() {
+    if let [MalType::Number(left), MalType::Number(right)] = get_variadic(env, "vals").as_slice() {
         MalType::Bool(left >= right)
     } else {
         panic!("Can only perform comparison on Numbers");
@@ -163,7 +163,7 @@ fn core_ge(env: &RcEnv) -> MalType {
 }
 
 fn core_gt(env: &RcEnv) -> MalType {
-    if let [MalType::Number(left), MalType::Number(right)] = get_variadic(env).as_slice() {
+    if let [MalType::Number(left), MalType::Number(right)] = get_variadic(env, "vals").as_slice() {
         MalType::Bool(left > right)
     } else {
         panic!("Can only perform comparison on Numbers");
@@ -171,7 +171,7 @@ fn core_gt(env: &RcEnv) -> MalType {
 }
 
 fn core_list(env: &RcEnv) -> MalType {
-    get_arg(env, "&")
+    get_arg(env, "args")
 }
 
 fn core_first(env: &RcEnv) -> MalType {
@@ -260,7 +260,7 @@ fn eval(env: &RcEnv) -> MalType {
 
 fn core_str(env: &RcEnv) -> MalType {
     MalType::String(
-        get_variadic(env)
+        get_variadic(env, "args")
             .iter()
             .map(|ast| super::pr_str(ast, false))
             .collect(),

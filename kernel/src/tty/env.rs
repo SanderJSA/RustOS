@@ -39,8 +39,12 @@ impl Env {
                 for arg in args.iter() {
                     if let MalType::Symbol(sym) = arg {
                         if sym == "&" {
-                            self.set(sym, MalType::List(value_iter.collect()));
-                            return;
+                            if let Some(MalType::Symbol(bind_sym)) = args.last() {
+                                self.set(bind_sym, MalType::List(value_iter.collect()));
+                                return;
+                            } else {
+                                panic!("Expected symbol after \"&\"");
+                            }
                         }
                         self.set(sym, value_iter.next().unwrap());
                     }
