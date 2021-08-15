@@ -60,7 +60,12 @@ impl Env {
 
 impl Display for Env {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", self.data.keys())
+        write!(f, "{:?}", self.data.keys())?;
+        if let Some(outer) = self.outer.as_ref() {
+            write!(f, "{}", outer.borrow())
+        } else {
+            Ok(())
+        }
     }
 }
 

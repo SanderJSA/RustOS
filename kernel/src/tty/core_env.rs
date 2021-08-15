@@ -35,6 +35,11 @@ fn init_builtins(env: &RcEnv) {
         ("rest", MalType::new_builtin(core_rest, &["list"], env)),
         ("cons", MalType::new_builtin(core_cons, &["x", "seq"], env)),
         ("conj", MalType::new_builtin(core_conj, &["coll", "x"], env)),
+        ("count", MalType::new_builtin(core_count, &["coll"], env)),
+        (
+            "nth",
+            MalType::new_builtin(core_nth, &["coll", "index"], env),
+        ),
         // String
         ("str", MalType::new_builtin(core_str, &["&", "args"], env)),
         // IO
@@ -209,6 +214,20 @@ fn core_conj(env: &RcEnv) -> MalType {
             coll.extend(x);
             MalType::List(coll)
         }
+        _ => panic!("conj: Unexpected argument type"),
+    }
+}
+
+fn core_count(env: &RcEnv) -> MalType {
+    match get_arg(env, "coll") {
+        MalType::List(list) => MalType::Number(list.len() as i64),
+        _ => panic!("count: Unexpected argument type"),
+    }
+}
+
+fn core_nth(env: &RcEnv) -> MalType {
+    match (get_arg(env, "coll"), get_arg(env, "index")) {
+        (MalType::List(mut coll), MalType::Number(index)) => coll.swap_remove(index as usize),
         _ => panic!("cons: Unexpected argument type"),
     }
 }

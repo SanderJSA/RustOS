@@ -137,13 +137,12 @@ fn eval(mut ast: MalType, mut env: RcEnv) -> MalType {
                     ast = tail.clone();
                 }
                 [MalType::Symbol(sym), MalType::Symbol(key), value] if sym == "defmacro!" => {
-                    let value = eval(value.clone(), env.clone());
                     if let MalType::Func {
                         args,
                         body,
                         env: fun,
                         ..
-                    } = value
+                    } = eval(value.clone(), env.clone())
                     {
                         let value = MalType::Func {
                             args,
@@ -191,7 +190,7 @@ fn eval(mut ast: MalType, mut env: RcEnv) -> MalType {
                                 args,
                                 body,
                                 env: outer,
-                                is_macro,
+                                ..
                             }, tail @ ..] => {
                                 ast = *body.clone();
                                 env = Rc::new(RefCell::new(Env::new(Some(outer.clone()))));
