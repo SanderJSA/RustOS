@@ -19,6 +19,7 @@ pub enum MalType {
         body: Box<MalType>,
         args: Box<MalType>,
         env: RcEnv,
+        is_macro: bool,
     },
     Builtin {
         eval: fn(env: &RcEnv) -> MalType,

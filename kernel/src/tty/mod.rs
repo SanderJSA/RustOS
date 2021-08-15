@@ -60,6 +60,18 @@ fn quasiquote(ast: MalType) -> MalType {
     }
 }
 
+fn get_macro(ast: &MalType, env: &RcEnv) -> Option<MalType> {
+    if let MalType::List(ref list) = ast {
+        if let Some(MalType::Symbol(sym)) = list.get(0) {
+            let env_sym = env.borrow().get(sym);
+            if let Some(MalType::Func { is_macro, .. }) = env_sym {
+                return env_sym;
+            }
+        }
+    }
+    None
+}
+
 fn eval_ast(ast: MalType, env: RcEnv) -> MalType {
     match ast {
         MalType::Symbol(sym) => env
@@ -73,8 +85,32 @@ fn eval_ast(ast: MalType, env: RcEnv) -> MalType {
     }
 }
 
+fn macroexpand(mut ast: MalType, env: &RcEnv) -> MalType {
+    while let Some(MalType::Func {
+        args,
+        body,
+        env: outer,
+        ..
+    }) = get_macro(&ast, env)
+    {
+        if let MalType::List(ref list) = ast {
+            let mut env = Env::new(Some(outer.clone()));
+            env.bind(&args, &list[1..]);
+            ast = eval(*body, Rc::new(RefCell::new(env)));
+        } else {
+            unreachable!()
+        }
+    }
+    ast
+}
+
 fn eval(mut ast: MalType, mut env: RcEnv) -> MalType {
     loop {
+        ast = macroexpand(ast, &env);
+        if let MalType::List(_) = ast {
+        } else {
+            ast = eval_ast(ast, env.clone());
+        }
         match ast {
             MalType::List(ref list) => match list.as_slice() {
                 [] => return eval_ast(ast, env),
@@ -100,11 +136,31 @@ fn eval(mut ast: MalType, mut env: RcEnv) -> MalType {
                     }
                     ast = tail.clone();
                 }
+                [MalType::Symbol(sym), MalType::Symbol(key), value] if sym == "defmacro!" => {
+                    let value = eval(value.clone(), env.clone());
+                    if let MalType::Func {
+                        args,
+                        body,
+                        env: fun,
+                        ..
+                    } = value
+                    {
+                        let value = MalType::Func {
+                            args,
+                            body,
+                            env: fun,
+                            is_macro: true,
+                        };
+                        env.borrow_mut().set(key, value.clone());
+                        return value;
+                    }
+                }
                 [MalType::Symbol(sym), args, body] if sym == "fn*" => {
                     return MalType::Func {
                         args: Box::new(args.clone()),
                         body: Box::new(body.clone()),
                         env,
+                        is_macro: false,
                     };
                 }
                 [MalType::Symbol(sym), cond, success, failure] if sym == "if" => {
@@ -115,6 +171,9 @@ fn eval(mut ast: MalType, mut env: RcEnv) -> MalType {
                 }
                 [MalType::Symbol(sym), arg] if sym == "quasiquote" => {
                     ast = quasiquote(arg.clone());
+                }
+                [MalType::Symbol(sym), arg] if sym == "macroexpand" => {
+                    return macroexpand(arg.clone(), &env);
                 }
                 _ => {
                     if let MalType::List(list) = eval_ast(ast, env) {
@@ -132,6 +191,7 @@ fn eval(mut ast: MalType, mut env: RcEnv) -> MalType {
                                 args,
                                 body,
                                 env: outer,
+                                is_macro,
                             }, tail @ ..] => {
                                 ast = *body.clone();
                                 env = Rc::new(RefCell::new(Env::new(Some(outer.clone()))));

@@ -14,6 +14,8 @@ pub fn init_core_env(env: &RcEnv) {
         "(def! load-file (fn* (f) (eval (read-string (str \"(do \" (slurp f) \"\nnil)\")))))",
         env.clone(),
     );
+
+    super::rep("(defmacro! cond (fn* (& xs) (if (> (count xs) 0) (list 'if (first xs) (if (> (count xs) 1) (nth xs 1) (throw \"odd number of forms to cond\")) (cons 'cond (rest (rest xs)))))))", env.clone());
 }
 fn init_builtins(env: &RcEnv) {
     let builtins = [
