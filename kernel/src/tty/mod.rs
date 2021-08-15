@@ -168,6 +168,12 @@ fn eval(mut ast: MalType, mut env: RcEnv) -> MalType {
                         _ => success.clone(),
                     }
                 }
+                [MalType::Symbol(sym), cond, success] if sym == "if" => {
+                    ast = match eval(cond.clone(), env.clone()) {
+                        MalType::Nil | MalType::Bool(false) => MalType::Nil,
+                        _ => success.clone(),
+                    }
+                }
                 [MalType::Symbol(sym), arg] if sym == "quasiquote" => {
                     ast = quasiquote(arg.clone());
                 }
