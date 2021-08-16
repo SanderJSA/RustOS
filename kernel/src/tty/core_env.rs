@@ -25,6 +25,20 @@ pub fn init_core_env(env: &RcEnv) {
                     (cons 'cond (rest (rest xs)))))))",
         env.clone(),
     );
+
+    super::rep(
+        "(defmacro! doseq (fn* (seq-exprs & body)
+            (if (= (count seq-exprs) 2)
+                `(let*
+                    (values ~(nth seq-exprs 1)
+                    ~(first seq-exprs) (first values))
+
+                    (if (not (= (count values) 0))
+                        (do
+                            ~@body
+                            (doseq (~(first seq-exprs) (rest values)) ~@body)))))))",
+        env.clone(),
+    );
 }
 fn init_builtins(env: &RcEnv) {
     let builtins = [

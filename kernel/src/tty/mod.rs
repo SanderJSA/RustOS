@@ -77,6 +77,10 @@ fn eval_ast(ast: MalType, env: RcEnv) -> MalType {
         MalType::Symbol(sym) => env
             .borrow()
             .get(&sym)
+            .map(|sym| {
+                crate::serial_print!("symbol: {}", sym);
+                sym
+            })
             .unwrap_or_else(|| panic!("{} not found in env: {}", sym, env.borrow())),
         MalType::List(list) => {
             MalType::List(list.into_iter().map(|val| eval(val, env.clone())).collect())
@@ -107,6 +111,7 @@ fn macroexpand(mut ast: MalType, env: &RcEnv) -> MalType {
 fn eval(mut ast: MalType, mut env: RcEnv) -> MalType {
     loop {
         ast = macroexpand(ast, &env);
+        crate::serial_print!("{}", ast);
         match ast {
             MalType::List(ref list) => match list.as_slice() {
                 [] => return eval_ast(ast, env),
@@ -147,6 +152,7 @@ fn eval(mut ast: MalType, mut env: RcEnv) -> MalType {
                             is_macro: true,
                         };
                         env.borrow_mut().set(key, value.clone());
+
                         return value;
                     }
                 }

@@ -46,7 +46,7 @@ impl Env {
                                 panic!("Expected symbol after \"&\"");
                             }
                         }
-                        self.set(sym, value_iter.next().unwrap());
+                        self.set(sym, value_iter.next().expect("Not enough arguments given"));
                     }
                 }
                 if value_iter.next().is_some() {
