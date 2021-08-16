@@ -3,13 +3,28 @@ use super::types::MalType;
 use crate::file_system::{read_dir, File};
 use crate::{exit_qemu, println, QemuExitCode};
 use alloc::rc::Rc;
-use alloc::string::{String, ToString};
+use alloc::string::String;
 use alloc::vec::Vec;
-use core::any::TypeId;
 use core::cell::RefCell;
+
+macro_rules! register_attribute {
+    ($env: ident, $type:path, $fn_name:ident, $clojure_name:literal) => {
+        fn $fn_name(env: &RcEnv) -> MalType {
+            if let $type(file) = get_arg(env, "arg") {
+                MalType::from(file.borrow().$fn_name())
+            } else {
+                panic!("{}: Invalid argument type", $clojure_name);
+            }
+        }
+
+        let builtin = MalType::new_builtin($fn_name, &["arg"], $env);
+        $env.borrow_mut().set($clojure_name, builtin);
+    };
+}
 
 pub fn init_core_env(env: &RcEnv) {
     init_builtins(env);
+    init_attributes(env);
     super::rep("(def! not (fn* (a) (if a false true)))", env.clone());
     super::rep(
         "(def! load-file (fn* (f) (eval (read-string (str \"(do \" (slurp f) \"\nnil)\")))))",
@@ -95,19 +110,20 @@ fn init_builtins(env: &RcEnv) {
             ".listFiles",
             MalType::new_builtin(list_files, &["file"], env),
         ),
-        (
-            ".isDirectory",
-            MalType::new_builtin(is_directory, &["file"], env),
-        ),
-        (".getPath", MalType::new_builtin(get_path, &["file"], env)),
         // Misc
         ("eval", MalType::new_builtin(eval, &["exp"], env)),
         ("shutdown", MalType::new_builtin(shutdown, &[], env)),
     ];
+
     let mut env_mut = env.borrow_mut();
     for (builtin_name, name) in builtins {
         env_mut.set(builtin_name, name);
     }
+}
+
+fn init_attributes(env: &RcEnv) {
+    register_attribute!(env, MalType::File, is_directory, ".isDirectory");
+    register_attribute!(env, MalType::File, get_path, ".getPath");
 }
 
 fn get_arg(env: &RcEnv, arg: &str) -> MalType {
@@ -362,35 +378,3 @@ fn list_files(env: &RcEnv) -> MalType {
         panic!(".listFiles: Invalid argument type");
     }
 }
-
-/*
-fn is_directory(env: &RcEnv) -> MalType {
-    if let MalType::File(file) = get_arg(env, "file") {
-        MalType::Bool(file.borrow().is_directory())
-    } else {
-        panic!(".isDirectory: Invalid argument type");
-    }
-}
-*/
-
-fn get_path(env: &RcEnv) -> MalType {
-    if let MalType::File(file) = get_arg(env, "file") {
-        MalType::String(file.borrow().get_path().to_string())
-    } else {
-        panic!(".getPath: Invalid argument type");
-    }
-}
-
-macro_rules! create_attribute {
-    ($type:path, $fn_name:ident, $clojure_name:literal) => {
-        fn $fn_name(env: &RcEnv) -> MalType {
-            if let $type(file) = get_arg(env, "file") {
-                MalType::from(file.borrow().$fn_name())
-            } else {
-                panic!("{}: Invalid argument type", $clojure_name);
-            }
-        }
-    };
-}
-
-create_attribute!(MalType::File, is_directory, ".isDirectory");
