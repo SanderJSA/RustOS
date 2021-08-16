@@ -71,7 +71,8 @@ impl Display for Env {
 
 pub fn bind_list(env: RcEnv, bindings: &[MalType]) {
     if let [MalType::Symbol(key), value, tail @ ..] = bindings {
-        env.borrow_mut().set(key, eval(value.clone(), env.clone()));
+        let value = eval(value.clone(), env.clone());
+        env.borrow_mut().set(key, value);
         bind_list(env, tail);
     }
 }
