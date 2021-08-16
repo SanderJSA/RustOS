@@ -3,7 +3,7 @@ use super::types::MalType;
 use crate::file_system::{read_dir, File};
 use crate::{exit_qemu, println, QemuExitCode};
 use alloc::rc::Rc;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::cell::RefCell;
 
@@ -39,6 +39,15 @@ pub fn init_core_env(env: &RcEnv) {
                             (doseq (~(first seq-exprs) (rest values)) ~@body)))))))",
         env.clone(),
     );
+
+    super::rep(
+        "(def! ls (fn* (filename)
+            (doseq (f (.listFiles (File filename)))
+                (println
+                    (if (.isDirectory f) \"d\" \"-\")
+                    (.getPath f)))))",
+        env.clone(),
+    );
 }
 fn init_builtins(env: &RcEnv) {
     let builtins = [
@@ -68,6 +77,10 @@ fn init_builtins(env: &RcEnv) {
         // IO
         ("prn", MalType::new_builtin(core_prn, &["&", "more"], env)),
         (
+            "println",
+            MalType::new_builtin(core_println, &["&", "more"], env),
+        ),
+        (
             "read-string",
             MalType::new_builtin(read_string, &["a"], env),
         ),
@@ -81,9 +94,13 @@ fn init_builtins(env: &RcEnv) {
             ".listFiles",
             MalType::new_builtin(list_files, &["file"], env),
         ),
+        (
+            ".isDirectory",
+            MalType::new_builtin(is_directory, &["file"], env),
+        ),
+        (".getPath", MalType::new_builtin(get_path, &["file"], env)),
         // Misc
         ("eval", MalType::new_builtin(eval, &["exp"], env)),
-        ("ls", MalType::new_builtin(ls, &[], env)),
         ("shutdown", MalType::new_builtin(shutdown, &[], env)),
     ];
     let mut env_mut = env.borrow_mut();
@@ -314,6 +331,15 @@ fn core_prn(env: &RcEnv) -> MalType {
     MalType::Nil
 }
 
+fn core_println(env: &RcEnv) -> MalType {
+    let res: String = get_variadic(env, "more")
+        .iter()
+        .map(|ast| super::pr_str(ast, false))
+        .collect();
+    println!("{}", res);
+    MalType::Nil
+}
+
 fn file(env: &RcEnv) -> MalType {
     if let MalType::String(filename) = get_arg(env, "filename") {
         let file = File::open(&filename).expect("Could not open file");
@@ -336,8 +362,18 @@ fn list_files(env: &RcEnv) -> MalType {
     }
 }
 
-//TEMP
-fn ls(_: &RcEnv) -> MalType {
-    crate::file_system::ls();
-    MalType::Nil
+fn is_directory(env: &RcEnv) -> MalType {
+    if let MalType::File(file) = get_arg(env, "file") {
+        MalType::Bool(file.borrow().is_directory())
+    } else {
+        panic!(".isDirectory: Invalid argument type");
+    }
+}
+
+fn get_path(env: &RcEnv) -> MalType {
+    if let MalType::File(file) = get_arg(env, "file") {
+        MalType::String(file.borrow().get_path().to_string())
+    } else {
+        panic!(".getPath: Invalid argument type");
+    }
 }

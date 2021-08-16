@@ -77,8 +77,13 @@ impl File {
     pub fn get_size(&self) -> usize {
         self.entry.size
     }
+
     pub fn get_path(&self) -> &str {
         self.entry.get_name()
+    }
+
+    pub fn is_directory(&self) -> bool {
+        self.entry.is_directory()
     }
 }
 

@@ -16,6 +16,7 @@ fn fs_start_lba() -> usize {
     }
 }
 
+#[derive(PartialEq, Eq)]
 #[repr(u8)]
 pub enum TypeFlag {
     File = 0,
@@ -104,6 +105,10 @@ impl Entry {
         let cstr = &self.name;
         let len = cstr.iter().position(|c| c == &b'\0').unwrap_or(cstr.len());
         str::from_utf8(&cstr[..len]).expect("Could not parse Cstring")
+    }
+
+    pub fn is_directory(&self) -> bool {
+        self.type_flag == TypeFlag::Directory
     }
 }
 
