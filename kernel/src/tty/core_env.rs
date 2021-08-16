@@ -1,7 +1,7 @@
 use super::env::RcEnv;
 use super::types::MalType;
 use crate::file_system::{read_dir, File};
-use crate::{exit_qemu, QemuExitCode};
+use crate::{exit_qemu, println, QemuExitCode};
 use alloc::rc::Rc;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -66,7 +66,7 @@ fn init_builtins(env: &RcEnv) {
         // String
         ("str", MalType::new_builtin(core_str, &["&", "args"], env)),
         // IO
-        ("prn", MalType::new_builtin(core_prn, &["a"], env)),
+        ("prn", MalType::new_builtin(core_prn, &["&", "more"], env)),
         (
             "read-string",
             MalType::new_builtin(read_string, &["a"], env),
@@ -151,11 +151,6 @@ fn core_div(env: &RcEnv) -> MalType {
         .reduce(|a, b| a / b)
         .unwrap();
     MalType::Number(res)
-}
-
-fn core_prn(env: &RcEnv) -> MalType {
-    super::print(&get_arg(env, "a"));
-    MalType::Nil
 }
 
 fn core_lt(env: &RcEnv) -> MalType {
@@ -307,6 +302,16 @@ fn core_str(env: &RcEnv) -> MalType {
             .map(|ast| super::pr_str(ast, false))
             .collect(),
     )
+}
+
+fn core_prn(env: &RcEnv) -> MalType {
+    let res: String = get_variadic(env, "more")
+        .iter()
+        .map(|ast| super::pr_str(ast, true))
+        .intersperse(String::from(" "))
+        .collect();
+    println!("{}", res);
+    MalType::Nil
 }
 
 fn file(env: &RcEnv) -> MalType {
