@@ -83,3 +83,15 @@ impl PartialEq for MalType {
     }
 }
 impl Eq for MalType {}
+
+impl From<&str> for MalType {
+    fn from(input: &str) -> Self {
+        MalType::String(input.to_string())
+    }
+}
+
+impl From<bool> for MalType {
+    fn from(input: bool) -> Self {
+        MalType::Bool(input)
+    }
+}

@@ -5,6 +5,7 @@ use crate::{exit_qemu, println, QemuExitCode};
 use alloc::rc::Rc;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
+use core::any::TypeId;
 use core::cell::RefCell;
 
 pub fn init_core_env(env: &RcEnv) {
@@ -362,6 +363,7 @@ fn list_files(env: &RcEnv) -> MalType {
     }
 }
 
+/*
 fn is_directory(env: &RcEnv) -> MalType {
     if let MalType::File(file) = get_arg(env, "file") {
         MalType::Bool(file.borrow().is_directory())
@@ -369,6 +371,7 @@ fn is_directory(env: &RcEnv) -> MalType {
         panic!(".isDirectory: Invalid argument type");
     }
 }
+*/
 
 fn get_path(env: &RcEnv) -> MalType {
     if let MalType::File(file) = get_arg(env, "file") {
@@ -377,3 +380,17 @@ fn get_path(env: &RcEnv) -> MalType {
         panic!(".getPath: Invalid argument type");
     }
 }
+
+macro_rules! create_attribute {
+    ($type:path, $fn_name:ident, $clojure_name:literal) => {
+        fn $fn_name(env: &RcEnv) -> MalType {
+            if let $type(file) = get_arg(env, "file") {
+                MalType::from(file.borrow().$fn_name())
+            } else {
+                panic!("{}: Invalid argument type", $clojure_name);
+            }
+        }
+    };
+}
+
+create_attribute!(MalType::File, is_directory, ".isDirectory");
