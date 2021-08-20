@@ -111,7 +111,6 @@ fn macroexpand(mut ast: MalType, env: &RcEnv) -> MalType {
 fn eval(mut ast: MalType, mut env: RcEnv) -> MalType {
     loop {
         ast = macroexpand(ast, &env);
-        crate::serial_print!("{}", ast);
         match ast {
             MalType::List(ref list) => match list.as_slice() {
                 [] => return eval_ast(ast, env),
@@ -249,10 +248,6 @@ fn pr_str(ast: &MalType, print_readably: bool) -> String {
         }
         MalType::File(_) => "#<File>".to_string(),
     }
-}
-
-fn print(ast: &MalType) {
-    println!("{}", pr_str(ast, true));
 }
 
 fn rep(input: &str, env: RcEnv) -> String {

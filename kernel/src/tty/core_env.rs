@@ -61,6 +61,9 @@ pub fn init_core_env(env: &RcEnv) {
             (doseq (f (.listFiles (File filename)))
                 (println
                     (if (.isDirectory f) \"d\" \"-\")
+                    (if (.canRead f) \"r\" \"-\")
+                    (if (.canWrite f) \"w\" \"-\")
+                    (if (.canExecute f) \"x \" \"- \")
                     (.getPath f)))))",
         env.clone(),
     );
@@ -124,6 +127,9 @@ fn init_builtins(env: &RcEnv) {
 fn init_attributes(env: &RcEnv) {
     register_attribute!(env, MalType::File, is_directory, ".isDirectory");
     register_attribute!(env, MalType::File, get_path, ".getPath");
+    register_attribute!(env, MalType::File, can_read, ".canRead");
+    register_attribute!(env, MalType::File, can_write, ".canWrite");
+    register_attribute!(env, MalType::File, can_execute, ".canExecute");
 }
 
 fn get_arg(env: &RcEnv, arg: &str) -> MalType {

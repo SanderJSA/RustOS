@@ -92,6 +92,10 @@ impl Entry {
         }
     }
 
+    pub fn save(&self) {
+        ata::write_sectors(self.sector, 1, any_as_u8_slice(self));
+    }
+
     pub fn is_file(&self) -> bool {
         let res = str::from_utf8(&self.ustar_indicator);
         res.is_ok() && res.unwrap() == "ustar\0"
@@ -109,6 +113,15 @@ impl Entry {
 
     pub fn is_directory(&self) -> bool {
         self.type_flag == TypeFlag::Directory
+    }
+
+    pub fn get_permissions(&self) -> u64 {
+        self.permissions
+    }
+
+    pub fn set_permissions(&mut self, permissions: u64) {
+        self.permissions = permissions;
+        self.save();
     }
 }
 
@@ -151,7 +164,7 @@ pub fn create_file(name: &str) -> Entry {
         .unwrap_or_else(fs_start_lba);
 
     let entry = Entry::new(name, lba);
-    ata::write_sectors(lba, 1, any_as_u8_slice(&entry));
+    entry.save();
     entry
 }
 
