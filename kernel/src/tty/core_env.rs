@@ -10,14 +10,29 @@ use core::cell::RefCell;
 macro_rules! register_attribute {
     ($env: ident, $type:path, $fn_name:ident, $clojure_name:literal) => {
         fn $fn_name(env: &RcEnv) -> MalType {
-            if let $type(file) = get_arg(env, "arg") {
+            if let $type(file) = get_arg(env, "struct") {
                 MalType::from(file.borrow().$fn_name())
             } else {
                 panic!("{}: Invalid argument type", $clojure_name);
             }
         }
 
-        let builtin = MalType::new_builtin($fn_name, &["arg"], $env);
+        let builtin = MalType::new_builtin($fn_name, &["struct"], $env);
+        $env.borrow_mut().set($clojure_name, builtin);
+    };
+    ($env: ident, $type:path, $fn_name:ident, $clojure_name:literal, $arg1:literal) => {
+        fn $fn_name(env: &RcEnv) -> MalType {
+            if let ($type(file), MalType::Bool(arg1)) =
+                (get_arg(env, "struct"), get_arg(env, $arg1))
+            {
+                file.borrow_mut().$fn_name(arg1);
+                MalType::Nil
+            } else {
+                panic!("{}: Invalid argument type", $clojure_name);
+            }
+        }
+
+        let builtin = MalType::new_builtin($fn_name, &["struct", $arg1], $env);
         $env.borrow_mut().set($clojure_name, builtin);
     };
 }
@@ -61,10 +76,20 @@ pub fn init_core_env(env: &RcEnv) {
             (doseq (f (.listFiles (File filename)))
                 (println
                     (if (.isDirectory f) \"d\" \"-\")
-                    (if (.canRead f) \"r\" \"-\")
-                    (if (.canWrite f) \"w\" \"-\")
-                    (if (.canExecute f) \"x \" \"- \")
+                    (if (.canRead f)     \"r\" \"-\")
+                    (if (.canWrite f)    \"w\" \"-\")
+                    (if (.canExecute f)  \"x \" \"- \")
                     (.getPath f)))))",
+        env.clone(),
+    );
+
+    super::rep(
+        "(def! chmod (fn* (perm filename)
+            (let* (f (File filename))
+                (do
+                    (.setReadable f   (= (bit-and perm 4) 4))
+                    (.setWriteable f  (= (bit-and perm 2) 2))
+                    (.setExecutable f (= (bit-and perm 1) 1))))))",
         env.clone(),
     );
 }
@@ -75,6 +100,10 @@ fn init_builtins(env: &RcEnv) {
         ("-", MalType::new_builtin(core_sub, &["&", "vals"], env)),
         ("*", MalType::new_builtin(core_mul, &["&", "vals"], env)),
         ("/", MalType::new_builtin(core_div, &["&", "vals"], env)),
+        (
+            "bit-and",
+            MalType::new_builtin(core_bit_and, &["&", "vals"], env),
+        ),
         ("<", MalType::new_builtin(core_lt, &["&", "vals"], env)),
         ("<=", MalType::new_builtin(core_le, &["&", "vals"], env)),
         ("=", MalType::new_builtin(core_eq, &["&", "vals"], env)),
@@ -130,6 +159,27 @@ fn init_attributes(env: &RcEnv) {
     register_attribute!(env, MalType::File, can_read, ".canRead");
     register_attribute!(env, MalType::File, can_write, ".canWrite");
     register_attribute!(env, MalType::File, can_execute, ".canExecute");
+    register_attribute!(
+        env,
+        MalType::File,
+        set_readable,
+        ".setReadable",
+        "is_readable"
+    );
+    register_attribute!(
+        env,
+        MalType::File,
+        set_writeable,
+        ".setWriteable",
+        "is_writeable"
+    );
+    register_attribute!(
+        env,
+        MalType::File,
+        set_executable,
+        ".setExecutable",
+        "is_executable"
+    );
 }
 
 fn get_arg(env: &RcEnv, arg: &str) -> MalType {
@@ -189,6 +239,18 @@ fn core_div(env: &RcEnv) -> MalType {
             _ => panic!("Value is not a number"),
         })
         .reduce(|a, b| a / b)
+        .unwrap();
+    MalType::Number(res)
+}
+
+fn core_bit_and(env: &RcEnv) -> MalType {
+    let res = get_variadic(env, "vals")
+        .iter()
+        .map(|value| match value {
+            MalType::Number(num) => *num,
+            _ => panic!("Value is not a number"),
+        })
+        .reduce(|a, b| a & b)
         .unwrap();
     MalType::Number(res)
 }
