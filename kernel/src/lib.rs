@@ -1,6 +1,6 @@
 #![no_std]
 #![cfg_attr(test, no_main)]
-#![feature(llvm_asm)]
+#![feature(asm)]
 #![feature(global_asm)]
 #![feature(abi_x86_interrupt)]
 #![feature(custom_test_frameworks)]

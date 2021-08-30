@@ -90,7 +90,7 @@ extern "x86-interrupt" fn page_fault_handler(
     let address: usize;
     unsafe {
         // Will always return address of invalid_access
-        llvm_asm!("mov %cr2, %rax" : "={rax}"(address) ::: "volatile");
+        asm!("", out("rax") address);
     }
 
     println!("EXCEPTION: PAGE FAULT");
