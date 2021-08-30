@@ -129,19 +129,35 @@ mod test {
         let ptr1 = allocator.alloc(layout) as *mut i64;
         let ptr2 = allocator.alloc(layout) as *mut i64;
         let ptr3 = allocator.alloc(layout) as *mut i64;
+        let ptr4 = allocator.alloc(layout) as *mut i64;
+        let ptr5 = allocator.alloc(layout) as *mut i64;
+        let ptr6 = allocator.alloc(layout) as *mut i64;
+        let ptr7 = allocator.alloc(layout) as *mut i64;
         unsafe {
             *ptr1 = -5810;
             *ptr2 = -1;
             *ptr3 = 9999900009;
+            *ptr4 = -999900009;
+            *ptr5 = 9317;
+            *ptr6 = 1245839;
+            *ptr7 = -23942;
 
             assert!(*ptr1 == -5810);
             assert!(*ptr2 == -1);
             assert!(*ptr3 == 9999900009);
+            assert!(*ptr4 == -999900009);
+            assert!(*ptr5 == 9317);
+            assert!(*ptr6 == 1245839);
+            assert!(*ptr7 == -23942);
         }
 
         allocator.dealloc(ptr1 as *mut u8, layout);
         allocator.dealloc(ptr2 as *mut u8, layout);
         allocator.dealloc(ptr3 as *mut u8, layout);
+        allocator.dealloc(ptr4 as *mut u8, layout);
+        allocator.dealloc(ptr5 as *mut u8, layout);
+        allocator.dealloc(ptr6 as *mut u8, layout);
+        allocator.dealloc(ptr7 as *mut u8, layout);
     }
 
     #[test_case]

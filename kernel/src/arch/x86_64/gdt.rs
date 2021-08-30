@@ -1,4 +1,5 @@
-use x86_64_crate::instructions::segmentation::set_cs;
+use x86_64_crate::instructions::segmentation::Segment;
+use x86_64_crate::instructions::segmentation::CS;
 use x86_64_crate::instructions::tables::load_tss;
 use x86_64_crate::structures::gdt::{Descriptor, GlobalDescriptorTable};
 use x86_64_crate::structures::tss::TaskStateSegment;
@@ -15,15 +16,14 @@ pub fn init() {
             static mut STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
 
             let stack_start = VirtAddr::from_ptr(&STACK);
-            let stack_end = stack_start + STACK_SIZE;
-            stack_end
+            stack_start + STACK_SIZE
         };
 
         let code_selector = GDT.add_entry(Descriptor::kernel_code_segment());
         let tss_selector = GDT.add_entry(Descriptor::tss_segment(&TSS));
 
         GDT.load();
-        set_cs(code_selector);
+        CS::set_reg(code_selector);
         load_tss(tss_selector);
     }
 }

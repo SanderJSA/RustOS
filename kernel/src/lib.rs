@@ -6,6 +6,7 @@
 #![feature(custom_test_frameworks)]
 #![feature(alloc_error_handler)]
 #![test_runner(test::test_runner)]
+#![feature(iter_intersperse)]
 #![reexport_test_harness_main = "test_main"]
 
 extern crate alloc;

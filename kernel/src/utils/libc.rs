@@ -25,8 +25,8 @@ pub unsafe extern "C" fn memcpy(dest: *mut u8, src: *const u8, n: usize) -> *mut
 pub unsafe extern "C" fn memmove(dest: *mut u8, src: *const u8, mut n: usize) -> *mut u8 {
     if src < dest && src as usize + n > dest as usize {
         while n > 0 {
-            *dest.add(n) = *src.add(n);
             n -= 1;
+            *dest.add(n) = *src.add(n);
         }
         dest
     } else {

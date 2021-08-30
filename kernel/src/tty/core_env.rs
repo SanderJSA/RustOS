@@ -1,202 +1,355 @@
 use super::env::RcEnv;
 use super::types::MalType;
-use crate::file_system::File;
-use crate::{exit_qemu, QemuExitCode};
-use alloc::boxed::Box;
-use alloc::{string::*, vec};
+use crate::file_system::{read_dir, File};
+use crate::{exit_qemu, println, QemuExitCode};
+use alloc::rc::Rc;
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::cell::RefCell;
+
+macro_rules! register_attribute {
+    ($env: ident, $type:path, $fn_name:ident, $clojure_name:literal) => {
+        fn $fn_name(env: &RcEnv) -> MalType {
+            if let $type(file) = get_arg(env, "struct") {
+                MalType::from(file.borrow().$fn_name())
+            } else {
+                panic!("{}: Invalid argument type", $clojure_name);
+            }
+        }
+
+        let builtin = MalType::new_builtin($fn_name, &["struct"], $env);
+        $env.borrow_mut().set($clojure_name, builtin);
+    };
+    ($env: ident, $type:path, $fn_name:ident, $clojure_name:literal, $arg1:literal) => {
+        fn $fn_name(env: &RcEnv) -> MalType {
+            if let ($type(file), MalType::Bool(arg1)) =
+                (get_arg(env, "struct"), get_arg(env, $arg1))
+            {
+                file.borrow_mut().$fn_name(arg1);
+                MalType::Nil
+            } else {
+                panic!("{}: Invalid argument type", $clojure_name);
+            }
+        }
+
+        let builtin = MalType::new_builtin($fn_name, &["struct", $arg1], $env);
+        $env.borrow_mut().set($clojure_name, builtin);
+    };
+}
 
 pub fn init_core_env(env: &RcEnv) {
-    env.borrow_mut().set("+", init_num_op(core_add, env));
-    env.borrow_mut().set("-", init_num_op(core_sub, env));
-    env.borrow_mut().set("*", init_num_op(core_mul, env));
-    env.borrow_mut().set("/", init_num_op(core_div, env));
-    env.borrow_mut().set("<", init_num_op(core_lt, env));
-    env.borrow_mut().set("<=", init_num_op(core_le, env));
-    env.borrow_mut().set("=", init_num_op(core_eq, env));
-    env.borrow_mut().set("=>", init_num_op(core_ge, env));
-    env.borrow_mut().set(">", init_num_op(core_gt, env));
-    env.borrow_mut().set("list", init_num_op(core_list, env));
-    env.borrow_mut().set(
-        "prn",
-        MalType::Builtin {
-            eval: core_prn,
-            args: Box::new(MalType::List(vec![MalType::Symbol("a".to_string())])),
-            env: env.clone(),
-        },
+    init_builtins(env);
+    init_attributes(env);
+    super::rep("(def! not (fn* (a) (if a false true)))", env.clone());
+    super::rep(
+        "(def! load-file (fn* (f) (eval (read-string (str \"(do \" (slurp f) \"\nnil)\")))))",
+        env.clone(),
     );
-    env.borrow_mut().set(
-        "shutdown",
-        MalType::Builtin {
-            eval: shutdown,
-            args: Box::new(MalType::List(vec![])),
-            env: env.clone(),
-        },
+
+    super::rep(
+        "(defmacro! cond (fn* (& xs)
+            (if (> (count xs) 0)
+                (list 'if (first xs)
+                    (if (> (count xs) 1)
+                        (nth xs 1)
+                        (throw \"odd number of forms to cond\"))
+                    (cons 'cond (rest (rest xs)))))))",
+        env.clone(),
     );
-    env.borrow_mut().set(
-        "read-string",
-        MalType::Builtin {
-            eval: read_string,
-            args: Box::new(MalType::List(vec![MalType::Symbol("a".to_string())])),
-            env: env.clone(),
-        },
+
+    super::rep(
+        "(defmacro! doseq (fn* (seq-exprs & body)
+            (if (= (count seq-exprs) 2)
+                `(let*
+                    (values ~(nth seq-exprs 1)
+                    ~(first seq-exprs) (first values))
+
+                    (if (not (= (count values) 0))
+                        (do
+                            ~@body
+                            (doseq (~(first seq-exprs) (rest values)) ~@body)))))))",
+        env.clone(),
     );
-    env.borrow_mut().set(
-        "slurp",
-        MalType::Builtin {
-            eval: slurp,
-            args: Box::new(MalType::List(vec![MalType::Symbol("a".to_string())])),
-            env: env.clone(),
-        },
+
+    super::rep(
+        "(def! ls (fn* (filename)
+            (doseq (f (.listFiles (File filename)))
+                (println
+                    (if (.isDirectory f) \"d\" \"-\")
+                    (if (.canRead f)     \"r\" \"-\")
+                    (if (.canWrite f)    \"w\" \"-\")
+                    (if (.canExecute f)  \"x \" \"- \")
+                    (.getPath f)))))",
+        env.clone(),
     );
-    env.borrow_mut().set(
-        "ls",
-        MalType::Builtin {
-            eval: ls,
-            args: Box::new(MalType::List(vec![])),
-            env: env.clone(),
-        },
+
+    super::rep(
+        "(def! chmod (fn* (perm filename)
+            (let* (f (File filename))
+                (do
+                    (.setReadable f   (= (bit-and perm 4) 4))
+                    (.setWriteable f  (= (bit-and perm 2) 2))
+                    (.setExecutable f (= (bit-and perm 1) 1))))))",
+        env.clone(),
     );
-    env.borrow_mut().set(
-        "write-to-file",
-        MalType::Builtin {
-            eval: write_to_file,
-            args: Box::new(MalType::List(vec![
-                MalType::Symbol("filename".to_string()),
-                MalType::Symbol("content".to_string()),
-            ])),
-            env: env.clone(),
-        },
+}
+fn init_builtins(env: &RcEnv) {
+    let builtins = [
+        // Operators
+        ("+", MalType::new_builtin(core_add, &["&", "vals"], env)),
+        ("-", MalType::new_builtin(core_sub, &["&", "vals"], env)),
+        ("*", MalType::new_builtin(core_mul, &["&", "vals"], env)),
+        ("/", MalType::new_builtin(core_div, &["&", "vals"], env)),
+        (
+            "bit-and",
+            MalType::new_builtin(core_bit_and, &["&", "vals"], env),
+        ),
+        ("<", MalType::new_builtin(core_lt, &["&", "vals"], env)),
+        ("<=", MalType::new_builtin(core_le, &["&", "vals"], env)),
+        ("=", MalType::new_builtin(core_eq, &["&", "vals"], env)),
+        ("=>", MalType::new_builtin(core_ge, &["&", "vals"], env)),
+        (">", MalType::new_builtin(core_gt, &["&", "vals"], env)),
+        // List
+        ("list", MalType::new_builtin(core_list, &["&", "args"], env)),
+        ("first", MalType::new_builtin(core_first, &["list"], env)),
+        ("rest", MalType::new_builtin(core_rest, &["list"], env)),
+        ("cons", MalType::new_builtin(core_cons, &["x", "seq"], env)),
+        ("conj", MalType::new_builtin(core_conj, &["coll", "x"], env)),
+        ("count", MalType::new_builtin(core_count, &["coll"], env)),
+        (
+            "nth",
+            MalType::new_builtin(core_nth, &["coll", "index"], env),
+        ),
+        // String
+        ("str", MalType::new_builtin(core_str, &["&", "args"], env)),
+        // IO
+        ("prn", MalType::new_builtin(core_prn, &["&", "more"], env)),
+        (
+            "println",
+            MalType::new_builtin(core_println, &["&", "more"], env),
+        ),
+        (
+            "read-string",
+            MalType::new_builtin(read_string, &["a"], env),
+        ),
+        ("slurp", MalType::new_builtin(slurp, &["filename"], env)),
+        (
+            "spit",
+            MalType::new_builtin(spit, &["filename", "content"], env),
+        ),
+        ("File", MalType::new_builtin(file, &["filename"], env)),
+        (
+            ".listFiles",
+            MalType::new_builtin(list_files, &["file"], env),
+        ),
+        // Misc
+        ("eval", MalType::new_builtin(eval, &["exp"], env)),
+        ("shutdown", MalType::new_builtin(shutdown, &[], env)),
+    ];
+
+    let mut env_mut = env.borrow_mut();
+    for (builtin_name, name) in builtins {
+        env_mut.set(builtin_name, name);
+    }
+}
+
+fn init_attributes(env: &RcEnv) {
+    register_attribute!(env, MalType::File, is_directory, ".isDirectory");
+    register_attribute!(env, MalType::File, get_path, ".getPath");
+    register_attribute!(env, MalType::File, can_read, ".canRead");
+    register_attribute!(env, MalType::File, can_write, ".canWrite");
+    register_attribute!(env, MalType::File, can_execute, ".canExecute");
+    register_attribute!(
+        env,
+        MalType::File,
+        set_readable,
+        ".setReadable",
+        "is_readable"
+    );
+    register_attribute!(
+        env,
+        MalType::File,
+        set_writeable,
+        ".setWriteable",
+        "is_writeable"
+    );
+    register_attribute!(
+        env,
+        MalType::File,
+        set_executable,
+        ".setExecutable",
+        "is_executable"
     );
 }
 
-fn init_num_op(eval_func: fn(env: &RcEnv) -> MalType, env: &RcEnv) -> MalType {
-    MalType::Builtin {
-        eval: eval_func,
-        args: Box::new(MalType::List(vec![MalType::Symbol("&".to_string())])),
-        env: env.clone(),
+fn get_arg(env: &RcEnv, arg: &str) -> MalType {
+    env.borrow()
+        .get(arg)
+        .unwrap_or_else(|| panic!("symbol \"{}\" not found in env", arg))
+}
+
+fn get_variadic(env: &RcEnv, arg: &str) -> Vec<MalType> {
+    if let MalType::List(list) = get_arg(env, arg) {
+        list
+    } else {
+        unreachable!()
     }
 }
 
 fn core_add(env: &RcEnv) -> MalType {
-    if let MalType::List(values) = env.borrow().get("&").expect("symbol not found in env") {
-        let res = values
-            .iter()
-            .map(|value| match value {
-                MalType::Number(num) => *num,
-                _ => panic!("Value is not a number"),
-            })
-            .sum();
-        MalType::Number(res)
-    } else {
-        unreachable!()
-    }
+    let res = get_variadic(env, "vals")
+        .iter()
+        .map(|value| match value {
+            MalType::Number(num) => *num,
+            _ => panic!("Value is not a number"),
+        })
+        .sum();
+    MalType::Number(res)
 }
 
 fn core_sub(env: &RcEnv) -> MalType {
-    if let MalType::List(values) = env.borrow().get("&").expect("symbol not found in env") {
-        let res = values
-            .iter()
-            .map(|value| match value {
-                MalType::Number(num) => *num,
-                _ => panic!("Value is not a number"),
-            })
-            .reduce(|a, b| a - b)
-            .unwrap();
-        MalType::Number(res)
-    } else {
-        unreachable!()
-    }
+    let res = get_variadic(env, "vals")
+        .iter()
+        .map(|value| match value {
+            MalType::Number(num) => *num,
+            _ => panic!("Value is not a number"),
+        })
+        .reduce(|a, b| a - b)
+        .unwrap();
+    MalType::Number(res)
 }
 
 fn core_mul(env: &RcEnv) -> MalType {
-    if let MalType::List(values) = env.borrow().get("&").expect("symbol not found in env") {
-        let res = values
-            .iter()
-            .map(|value| match value {
-                MalType::Number(num) => *num,
-                _ => panic!("Value is not a number"),
-            })
-            .reduce(|a, b| a * b)
-            .unwrap();
-        MalType::Number(res)
-    } else {
-        unreachable!()
-    }
+    let res = get_variadic(env, "vals")
+        .iter()
+        .map(|value| match value {
+            MalType::Number(num) => *num,
+            _ => panic!("Value is not a number"),
+        })
+        .reduce(|a, b| a * b)
+        .unwrap();
+    MalType::Number(res)
 }
 
 fn core_div(env: &RcEnv) -> MalType {
-    if let MalType::List(values) = env.borrow().get("&").expect("symbol not found in env") {
-        let res = values
-            .iter()
-            .map(|value| match value {
-                MalType::Number(num) => *num,
-                _ => panic!("Value is not a number"),
-            })
-            .reduce(|a, b| a / b)
-            .unwrap();
-        MalType::Number(res)
-    } else {
-        unreachable!()
-    }
+    let res = get_variadic(env, "vals")
+        .iter()
+        .map(|value| match value {
+            MalType::Number(num) => *num,
+            _ => panic!("Value is not a number"),
+        })
+        .reduce(|a, b| a / b)
+        .unwrap();
+    MalType::Number(res)
 }
 
-fn core_prn(env: &RcEnv) -> MalType {
-    super::print(env.borrow().get("a").expect("symbol not found in env"));
-    MalType::Nil
-}
-
-fn core_list(env: &RcEnv) -> MalType {
-    env.borrow().get("&").expect("symbol not found in env")
+fn core_bit_and(env: &RcEnv) -> MalType {
+    let res = get_variadic(env, "vals")
+        .iter()
+        .map(|value| match value {
+            MalType::Number(num) => *num,
+            _ => panic!("Value is not a number"),
+        })
+        .reduce(|a, b| a & b)
+        .unwrap();
+    MalType::Number(res)
 }
 
 fn core_lt(env: &RcEnv) -> MalType {
-    let args = env.borrow().get("&").expect("symbol not found in env");
-    if let MalType::List(list) = args {
-        if let [MalType::Number(left), MalType::Number(right)] = &list[..] {
-            return MalType::Bool(left < right);
-        }
+    if let [MalType::Number(left), MalType::Number(right)] = get_variadic(env, "vals").as_slice() {
+        MalType::Bool(left < right)
+    } else {
+        panic!("Can only perform comparison on Numbers");
     }
-    unreachable!()
 }
 
 fn core_le(env: &RcEnv) -> MalType {
-    let args = env.borrow().get("&").expect("symbol not found in env");
-    if let MalType::List(list) = args {
-        if let [MalType::Number(left), MalType::Number(right)] = &list[..] {
-            return MalType::Bool(left <= right);
-        }
+    if let [MalType::Number(left), MalType::Number(right)] = get_variadic(env, "vals").as_slice() {
+        MalType::Bool(left <= right)
+    } else {
+        panic!("Can only perform comparison on Numbers");
     }
-    unreachable!()
 }
 
 fn core_eq(env: &RcEnv) -> MalType {
-    let args = env.borrow().get("&").expect("symbol not found in env");
-    if let MalType::List(list) = args {
-        if let [MalType::Number(left), MalType::Number(right)] = &list[..] {
-            return MalType::Bool(left == right);
-        }
+    if let [MalType::Number(left), MalType::Number(right)] = get_variadic(env, "vals").as_slice() {
+        MalType::Bool(left == right)
+    } else {
+        panic!("Can only perform comparison on Numbers");
     }
-    unreachable!()
 }
 
 fn core_ge(env: &RcEnv) -> MalType {
-    let args = env.borrow().get("&").expect("symbol not found in env");
-    if let MalType::List(list) = args {
-        if let [MalType::Number(left), MalType::Number(right)] = &list[..] {
-            return MalType::Bool(left >= right);
-        }
+    if let [MalType::Number(left), MalType::Number(right)] = get_variadic(env, "vals").as_slice() {
+        MalType::Bool(left >= right)
+    } else {
+        panic!("Can only perform comparison on Numbers");
     }
-    unreachable!()
 }
 
 fn core_gt(env: &RcEnv) -> MalType {
-    let args = env.borrow().get("&").expect("symbol not found in env");
-    if let MalType::List(list) = args {
-        if let [MalType::Number(left), MalType::Number(right)] = &list[..] {
-            return MalType::Bool(left > right);
-        }
+    if let [MalType::Number(left), MalType::Number(right)] = get_variadic(env, "vals").as_slice() {
+        MalType::Bool(left > right)
+    } else {
+        panic!("Can only perform comparison on Numbers");
     }
-    unreachable!()
+}
+
+fn core_list(env: &RcEnv) -> MalType {
+    get_arg(env, "args")
+}
+
+fn core_first(env: &RcEnv) -> MalType {
+    match get_arg(env, "list") {
+        MalType::Nil => MalType::Nil,
+        MalType::List(list) => list.into_iter().next().unwrap_or(MalType::Nil),
+        _ => panic!("first: Unexpected argument type"),
+    }
+}
+
+fn core_rest(env: &RcEnv) -> MalType {
+    match get_arg(env, "list") {
+        MalType::Nil => MalType::List(alloc::vec![]),
+        MalType::List(mut list) => {
+            list.remove(0);
+            MalType::List(list)
+        }
+        _ => panic!("rest: Unexpected argument type"),
+    }
+}
+
+fn core_cons(env: &RcEnv) -> MalType {
+    match (get_arg(env, "x"), get_arg(env, "seq")) {
+        (x, MalType::List(mut list)) => {
+            list.insert(0, x);
+            MalType::List(list)
+        }
+        _ => panic!("cons: Unexpected argument type"),
+    }
+}
+
+fn core_conj(env: &RcEnv) -> MalType {
+    match (get_arg(env, "coll"), get_arg(env, "x")) {
+        (MalType::List(mut coll), MalType::List(x)) => {
+            coll.extend(x);
+            MalType::List(coll)
+        }
+        _ => panic!("conj: Unexpected argument type"),
+    }
+}
+
+fn core_count(env: &RcEnv) -> MalType {
+    match get_arg(env, "coll") {
+        MalType::List(list) => MalType::Number(list.len() as i64),
+        _ => panic!("count: Unexpected argument type"),
+    }
+}
+
+fn core_nth(env: &RcEnv) -> MalType {
+    match (get_arg(env, "coll"), get_arg(env, "index")) {
+        (MalType::List(mut coll), MalType::Number(index)) => coll.swap_remove(index as usize),
+        _ => panic!("cons: Unexpected argument type"),
+    }
 }
 
 fn shutdown(_: &RcEnv) -> MalType {
@@ -204,7 +357,7 @@ fn shutdown(_: &RcEnv) -> MalType {
 }
 
 fn read_string(env: &RcEnv) -> MalType {
-    if let Some(MalType::String(str)) = env.borrow().get("a") {
+    if let MalType::String(str) = get_arg(env, "a") {
         super::read_str(&str)
     } else {
         panic!("read-string: Expected a string argument");
@@ -212,7 +365,7 @@ fn read_string(env: &RcEnv) -> MalType {
 }
 
 fn slurp(env: &RcEnv) -> MalType {
-    if let Some(MalType::String(filename)) = env.borrow().get("a") {
+    if let MalType::String(filename) = get_arg(env, "filename") {
         let mut file = File::open(&filename).expect("Could not open file");
         let mut content = String::with_capacity(file.get_size());
         for _ in 0..file.get_size() {
@@ -228,20 +381,68 @@ fn slurp(env: &RcEnv) -> MalType {
     }
 }
 
-fn write_to_file(env: &RcEnv) -> MalType {
-    if let (Some(MalType::String(filename)), Some(MalType::String(content))) =
-        (env.borrow().get("filename"), env.borrow().get("content"))
+fn spit(env: &RcEnv) -> MalType {
+    if let (MalType::String(filename), MalType::String(content)) =
+        (get_arg(env, "filename"), get_arg(env, "content"))
     {
         let mut file = File::create(&filename).expect("Could not open file");
         file.write(content.as_bytes());
         MalType::Nil
     } else {
-        panic!("write-to-file: Expected a string argument");
+        panic!("spit: Invalid argument type");
     }
 }
 
-//TEMP
-fn ls(_: &RcEnv) -> MalType {
-    crate::file_system::ls();
+fn eval(env: &RcEnv) -> MalType {
+    super::eval(get_arg(env, "exp"), env.clone())
+}
+
+fn core_str(env: &RcEnv) -> MalType {
+    MalType::String(
+        get_variadic(env, "args")
+            .iter()
+            .map(|ast| super::pr_str(ast, false))
+            .collect(),
+    )
+}
+
+fn core_prn(env: &RcEnv) -> MalType {
+    let res: String = get_variadic(env, "more")
+        .iter()
+        .map(|ast| super::pr_str(ast, true))
+        .intersperse(String::from(" "))
+        .collect();
+    println!("{}", res);
     MalType::Nil
+}
+
+fn core_println(env: &RcEnv) -> MalType {
+    let res: String = get_variadic(env, "more")
+        .iter()
+        .map(|ast| super::pr_str(ast, false))
+        .collect();
+    println!("{}", res);
+    MalType::Nil
+}
+
+fn file(env: &RcEnv) -> MalType {
+    if let MalType::String(filename) = get_arg(env, "filename") {
+        let file = File::open(&filename).expect("Could not open file");
+        MalType::File(Rc::new(RefCell::new(file)))
+    } else {
+        panic!("File: Invalid argument type");
+    }
+}
+
+fn list_files(env: &RcEnv) -> MalType {
+    if let MalType::File(file) = get_arg(env, "file") {
+        let entries = read_dir(file.borrow().get_path()).unwrap();
+        MalType::List(
+            entries
+                .map(|entry| MalType::File(Rc::new(RefCell::new(File::new(entry)))))
+                .collect(),
+        )
+    } else {
+        panic!(".listFiles: Invalid argument type");
+    }
 }

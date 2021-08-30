@@ -9,6 +9,7 @@ use crate::driver::ps2_keyboard::readline;
 use crate::{print, println};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
+use alloc::string::{String, ToString};
 use core::cell::RefCell;
 use env::{Env, RcEnv};
 use reader::Reader;
@@ -28,12 +29,47 @@ Howdy, welcome to RustOS",
     );
 }
 
-fn read() -> MalType {
-    print!("root> ");
-    read_str(readline().trim_end())
+fn quasiquote(ast: MalType) -> MalType {
+    match ast {
+        MalType::List(list) => match list.as_slice() {
+            [MalType::Symbol(sym), arg] if sym == "unquote" => arg.clone(),
+            _ => {
+                let mut res = alloc::vec![];
+                for elt in list.into_iter().rev() {
+                    if let MalType::List(ref el_list) = elt {
+                        if el_list.get(0) == Some(&MalType::splice_unquote()) {
+                            res = alloc::vec![
+                                MalType::Symbol("conj".to_string()),
+                                el_list[1].clone(),
+                                MalType::List(res)
+                            ];
+                            continue;
+                        }
+                    }
+
+                    res = alloc::vec![
+                        MalType::Symbol("cons".to_string()),
+                        quasiquote(elt),
+                        MalType::List(res)
+                    ];
+                }
+                MalType::List(res)
+            }
+        },
+        ast => MalType::List(alloc::vec![MalType::quote(), ast]),
+    }
 }
-fn read_str(line: &str) -> MalType {
-    Reader::new(line).read_form()
+
+fn get_macro(ast: &MalType, env: &RcEnv) -> Option<MalType> {
+    if let MalType::List(ref list) = ast {
+        if let Some(MalType::Symbol(sym)) = list.get(0) {
+            let env_sym = env.borrow().get(sym);
+            if let Some(MalType::Func { is_macro: true, .. }) = env_sym {
+                return env_sym;
+            }
+        }
+    }
+    None
 }
 
 fn eval_ast(ast: MalType, env: RcEnv) -> MalType {
@@ -41,7 +77,7 @@ fn eval_ast(ast: MalType, env: RcEnv) -> MalType {
         MalType::Symbol(sym) => env
             .borrow()
             .get(&sym)
-            .expect(&alloc::format!("Symbol not found in env: {}", sym)),
+            .unwrap_or_else(|| panic!("{} not found in env: {}", sym, env.borrow())),
         MalType::List(list) => {
             MalType::List(list.into_iter().map(|val| eval(val, env.clone())).collect())
         }
@@ -49,11 +85,34 @@ fn eval_ast(ast: MalType, env: RcEnv) -> MalType {
     }
 }
 
+fn macroexpand(mut ast: MalType, env: &RcEnv) -> MalType {
+    while let Some(MalType::Func {
+        args,
+        body,
+        env: outer,
+        ..
+    }) = get_macro(&ast, env)
+    {
+        if let MalType::List(ref list) = ast {
+            let mut env = Env::new(Some(outer.clone()));
+            env.bind(&args, &list[1..]);
+            ast = eval(*body, Rc::new(RefCell::new(env)));
+        } else {
+            unreachable!()
+        }
+    }
+    ast
+}
+
 fn eval(mut ast: MalType, mut env: RcEnv) -> MalType {
     loop {
+        ast = macroexpand(ast, &env);
         match ast {
             MalType::List(ref list) => match list.as_slice() {
                 [] => return eval_ast(ast, env),
+                [MalType::Symbol(sym), arg] if sym == "quote" => {
+                    return arg.clone();
+                }
                 [MalType::Symbol(sym), MalType::Symbol(key), value] if sym == "def!" => {
                     let value = eval(value.clone(), env.clone());
                     env.borrow_mut().set(key, value.clone());
@@ -73,11 +132,31 @@ fn eval(mut ast: MalType, mut env: RcEnv) -> MalType {
                     }
                     ast = tail.clone();
                 }
+                [MalType::Symbol(sym), MalType::Symbol(key), value] if sym == "defmacro!" => {
+                    if let MalType::Func {
+                        args,
+                        body,
+                        env: fun,
+                        ..
+                    } = eval(value.clone(), env.clone())
+                    {
+                        let value = MalType::Func {
+                            args,
+                            body,
+                            env: fun,
+                            is_macro: true,
+                        };
+                        env.borrow_mut().set(key, value.clone());
+
+                        return value;
+                    }
+                }
                 [MalType::Symbol(sym), args, body] if sym == "fn*" => {
                     return MalType::Func {
                         args: Box::new(args.clone()),
                         body: Box::new(body.clone()),
                         env,
+                        is_macro: false,
                     };
                 }
                 [MalType::Symbol(sym), cond, success, failure] if sym == "if" => {
@@ -85,6 +164,18 @@ fn eval(mut ast: MalType, mut env: RcEnv) -> MalType {
                         MalType::Nil | MalType::Bool(false) => failure.clone(),
                         _ => success.clone(),
                     }
+                }
+                [MalType::Symbol(sym), cond, success] if sym == "if" => {
+                    ast = match eval(cond.clone(), env.clone()) {
+                        MalType::Nil | MalType::Bool(false) => MalType::Nil,
+                        _ => success.clone(),
+                    }
+                }
+                [MalType::Symbol(sym), arg] if sym == "quasiquote" => {
+                    ast = quasiquote(arg.clone());
+                }
+                [MalType::Symbol(sym), arg] if sym == "macroexpand" => {
+                    return macroexpand(arg.clone(), &env);
                 }
                 _ => {
                     if let MalType::List(list) = eval_ast(ast, env) {
@@ -102,12 +193,13 @@ fn eval(mut ast: MalType, mut env: RcEnv) -> MalType {
                                 args,
                                 body,
                                 env: outer,
+                                ..
                             }, tail @ ..] => {
                                 ast = *body.clone();
                                 env = Rc::new(RefCell::new(Env::new(Some(outer.clone()))));
                                 env.borrow_mut().bind(args, tail);
                             }
-                            _ => panic!("Invalid function"),
+                            list => panic!("Invalid function: {}", list[0]),
                         }
                     } else {
                         unreachable!();
@@ -120,8 +212,44 @@ fn eval(mut ast: MalType, mut env: RcEnv) -> MalType {
     }
 }
 
-fn print(ast: MalType) {
-    println!("{}", ast);
+fn read_str(line: &str) -> MalType {
+    Reader::new(line).read_form()
+}
+
+fn pr_str(ast: &MalType, print_readably: bool) -> String {
+    match ast {
+        MalType::Number(num) => num.to_string(),
+        MalType::Symbol(sym) => sym.to_string(),
+        MalType::List(list) => {
+            alloc::format!(
+                "({})",
+                list.iter()
+                    .map(|ast| pr_str(ast, print_readably))
+                    .intersperse(' '.to_string())
+                    .collect::<String>()
+            )
+        }
+        MalType::Func { .. } => "#<function>".to_string(),
+        MalType::Builtin { .. } => "#<builtin>".to_string(),
+        MalType::Nil => "nil".to_string(),
+        MalType::Bool(true) => "true".to_string(),
+        MalType::Bool(false) => "false".to_string(),
+        MalType::String(string) => {
+            if print_readably {
+                alloc::format!("\"{}\"", string)
+            } else {
+                //TODO: Escape special chars
+                string.clone()
+            }
+        }
+        MalType::File(_) => "#<File>".to_string(),
+    }
+}
+
+fn rep(input: &str, env: RcEnv) -> String {
+    let ast_in = read_str(input);
+    let ast_out = eval(ast_in, env);
+    pr_str(&ast_out, true)
 }
 
 pub fn run_tty() {
@@ -131,9 +259,10 @@ pub fn run_tty() {
     core_env::init_core_env(&env);
 
     loop {
-        let input = read();
-        let ast = eval(input, env.clone());
-        print(ast);
+        print!("root> ");
+        let input = readline().trim_end();
+        let output = rep(input, env.clone());
+        println!("{}", output);
     }
 }
 

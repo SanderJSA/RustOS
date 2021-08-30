@@ -5,8 +5,12 @@ use crate::arch::ata;
 pub use ustar::ls;
 use ustar::{Entry, ReadDir, BLOCK_SIZE};
 
+const READ_PERM: u64 = 0b100;
+const WRITE_PERM: u64 = 0b010;
+const EXEC_PERM: u64 = 0b001;
+
 pub fn read_dir(dir_name: &str) -> Option<ReadDir> {
-    if dir_name == "\"" {
+    if dir_name == "/" {
         Some(ReadDir::root())
     } else {
         None
@@ -19,7 +23,7 @@ pub struct File {
 }
 
 impl File {
-    fn new(entry: Entry) -> File {
+    pub fn new(entry: Entry) -> File {
         File { index: 0, entry }
     }
     pub fn create(filename: &str) -> Option<File> {
@@ -76,6 +80,47 @@ impl File {
 
     pub fn get_size(&self) -> usize {
         self.entry.size
+    }
+
+    pub fn get_path(&self) -> &str {
+        self.entry.get_name()
+    }
+
+    pub fn is_directory(&self) -> bool {
+        self.entry.is_directory()
+    }
+
+    pub fn can_read(&self) -> bool {
+        self.entry.get_permissions() & READ_PERM != 0
+    }
+
+    pub fn can_write(&self) -> bool {
+        self.entry.get_permissions() & WRITE_PERM != 0
+    }
+
+    pub fn can_execute(&self) -> bool {
+        self.entry.get_permissions() & EXEC_PERM != 0
+    }
+
+    pub fn set_readable(&mut self, is_readable: bool) {
+        self.set_permission(is_readable, READ_PERM);
+    }
+
+    pub fn set_writeable(&mut self, is_writeable: bool) {
+        self.set_permission(is_writeable, WRITE_PERM);
+    }
+
+    pub fn set_executable(&mut self, is_executable: bool) {
+        self.set_permission(is_executable, EXEC_PERM);
+    }
+
+    fn set_permission(&mut self, cond: bool, flag: u64) {
+        let perms = self.entry.get_permissions();
+        if cond {
+            self.entry.set_permissions(perms | (flag));
+        } else {
+            self.entry.set_permissions(perms & !(flag));
+        }
     }
 }
 

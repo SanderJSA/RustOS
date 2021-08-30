@@ -39,10 +39,14 @@ impl Env {
                 for arg in args.iter() {
                     if let MalType::Symbol(sym) = arg {
                         if sym == "&" {
-                            self.set(sym, MalType::List(value_iter.collect()));
-                            return;
+                            if let Some(MalType::Symbol(bind_sym)) = args.last() {
+                                self.set(bind_sym, MalType::List(value_iter.collect()));
+                                return;
+                            } else {
+                                panic!("Expected symbol after \"&\"");
+                            }
                         }
-                        self.set(sym, value_iter.next().unwrap());
+                        self.set(sym, value_iter.next().expect("Not enough arguments given"));
                     }
                 }
                 if value_iter.next().is_some() {
@@ -56,13 +60,19 @@ impl Env {
 
 impl Display for Env {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", self.data.keys())
+        write!(f, "{:?}", self.data.keys())?;
+        if let Some(outer) = self.outer.as_ref() {
+            write!(f, "{}", outer.borrow())
+        } else {
+            Ok(())
+        }
     }
 }
 
 pub fn bind_list(env: RcEnv, bindings: &[MalType]) {
     if let [MalType::Symbol(key), value, tail @ ..] = bindings {
-        env.borrow_mut().set(key, eval(value.clone(), env.clone()));
+        let value = eval(value.clone(), env.clone());
+        env.borrow_mut().set(key, value);
         bind_list(env, tail);
     }
 }

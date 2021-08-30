@@ -3,7 +3,6 @@ use crate::memory_manager::{mmap, PAGE_SIZE};
 
 pub struct Slab {
     block_size: usize,
-    len: usize,
     head: Option<&'static mut Block>,
 }
 
@@ -17,13 +16,12 @@ impl Slab {
         assert!(core::mem::size_of::<Block>() <= block_size);
         Slab {
             block_size,
-            len: 0,
             head: None,
         }
     }
 
     pub fn allocate(&mut self) -> *mut u8 {
-        if self.len == 0 {
+        if self.head.is_none() {
             self.grow();
         }
         let block = self.head.take().unwrap();
