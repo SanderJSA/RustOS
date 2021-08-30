@@ -77,10 +77,6 @@ fn eval_ast(ast: MalType, env: RcEnv) -> MalType {
         MalType::Symbol(sym) => env
             .borrow()
             .get(&sym)
-            .map(|sym| {
-                crate::serial_print!("symbol: {}", sym);
-                sym
-            })
             .unwrap_or_else(|| panic!("{} not found in env: {}", sym, env.borrow())),
         MalType::List(list) => {
             MalType::List(list.into_iter().map(|val| eval(val, env.clone())).collect())
