@@ -5,10 +5,10 @@ pub const DOUBLE_FAULT_IST_INDEX: u16 = 0;
 const KERNEL_RING: u8 = 0;
 const USERLAND_RING: u8 = 3;
 
-const KERNEL_CODE_SEG: usize = 0x8;
-const KERNEL_DATA_SEG: usize = 0x10;
-const USER_CODE_SEG: usize = 0x18;
-const USER_DATA_SEG: usize = 0x20;
+const KERNEL_CODE_SEG: Segment = Segment::new(1, KERNEL_RING);
+const KERNEL_DATA_SEG: Segment = Segment::new(2, KERNEL_RING);
+const USER_CODE_SEG: Segment = Segment::new(3, USERLAND_RING);
+const USER_DATA_SEG: Segment = Segment::new(4, USERLAND_RING);
 
 const MAX_ENTRIES: usize = 5;
 
@@ -25,20 +25,17 @@ pub fn init() {
     }
 }
 
-#[allow(unused)]
-const ACCESSED: u8 = 1;
-const WRITEABLE: u8 = 1 << 1;
-#[allow(unused)]
-const EXPAND_DOWN: u8 = 1 << 2;
-const EXECUTABLE: u8 = 1 << 3;
-const DESC_TYPE: u8 = 1 << 4;
-const PRIVILEGE_SHIFT: u8 = 5;
-const SEG_PRESENT: u8 = 1 << 7;
-const AVL: u8 = 1 << 4;
-const CS_SIZE: u8 = 1 << 5;
-#[allow(unused)]
-const DEFAULT_OPERATION_SIZE: u8 = 1 << 6;
-const GRANULARITY: u8 = 1 << 7;
+struct Segment(u64);
+
+impl Segment {
+    pub const fn new(offset: u64, privilege: u8) -> Segment {
+        Segment((offset << 3) | (privilege as u64 & 0b11))
+    }
+
+    pub const fn get_offset(&self) -> usize {
+        (self.0 >> 3) as usize
+    }
+}
 
 #[derive(Default, Debug)]
 #[repr(C)]
@@ -62,6 +59,15 @@ struct GdtEntry {
     flags: u8,
     base_addr_high: u8,
 }
+
+const WRITEABLE: u8 = 1 << 1;
+const EXECUTABLE: u8 = 1 << 3;
+const DESC_TYPE: u8 = 1 << 4;
+const PRIVILEGE_SHIFT: u8 = 5;
+const SEG_PRESENT: u8 = 1 << 7;
+const AVL: u8 = 1 << 4;
+const CS_SIZE: u8 = 1 << 5;
+const GRANULARITY: u8 = 1 << 7;
 
 impl GdtEntry {
     pub const fn new(base_addr: u32, executable: bool, ring: u8) -> GdtEntry {
@@ -92,15 +98,6 @@ struct Gdtr {
     base: *const Gdt,
 }
 
-impl Gdtr {
-    pub fn new(gdt: &Gdt) -> Gdtr {
-        Gdtr {
-            limit: mem::size_of::<[GdtEntry; MAX_ENTRIES]>() as u16 - 1,
-            base: gdt,
-        }
-    }
-}
-
 impl Gdt {
     pub fn new() -> Gdt {
         Gdt {
@@ -108,14 +105,14 @@ impl Gdt {
         }
     }
 
-    pub fn insert(mut self, seg_selector: usize, entry: GdtEntry) -> Gdt {
-        self.entries[seg_selector >> 3] = entry;
+    pub fn insert(mut self, seg: Segment, entry: GdtEntry) -> Gdt {
+        self.entries[seg.get_offset()] = entry;
         self
     }
 
     /// Loads the Gdt and reloads segments
     /// Gdt must be valid
-    pub unsafe fn load(self, code_seg: usize, data_seg: usize) {
+    pub unsafe fn load(self, code_seg: Segment, data_seg: Segment) {
         static mut GDT: MaybeUninit<(Gdtr, Gdt)> = MaybeUninit::uninit();
         GDT = MaybeUninit::new((Gdtr::new(&self), self));
 
@@ -125,13 +122,22 @@ impl Gdt {
              "mov es, ax",
              "mov fs, ax",
              "mov gs, ax",
-             in("ax") data_seg);
+             in("ax") *((&data_seg as *const _) as *const u64));
         asm!("push {}",
              "lea  rax, [rip + 1f]",
              "push rax",
              "retfq",
              "1:",
-             in(reg) code_seg,
+             in(reg) *((&code_seg as *const _) as *const u64),
              out("rax") _);
+    }
+}
+
+impl Gdtr {
+    pub fn new(gdt: &Gdt) -> Gdtr {
+        Gdtr {
+            limit: mem::size_of::<[GdtEntry; MAX_ENTRIES]>() as u16 - 1,
+            base: gdt,
+        }
     }
 }
