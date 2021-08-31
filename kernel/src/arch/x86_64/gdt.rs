@@ -1,40 +1,27 @@
-use core::mem;
+use core::mem::{self, MaybeUninit};
 
 pub const DOUBLE_FAULT_IST_INDEX: u16 = 0;
 
 const KERNEL_RING: u8 = 0;
-#[allow(unused)]
 const USERLAND_RING: u8 = 3;
 
-const KERNEL_CODE_OFF: usize = 1;
-const KERNEL_DATA_OFF: usize = 2;
-const USER_CODE_OFF: usize = 3;
-const USER_DATA_OFF: usize = 4;
+const KERNEL_CODE_SEG: usize = 0x8;
+const KERNEL_DATA_SEG: usize = 0x10;
+const USER_CODE_SEG: usize = 0x18;
+const USER_DATA_SEG: usize = 0x20;
 
-const MAX_ENTRIES: usize = 8;
+const MAX_ENTRIES: usize = 5;
 
 pub fn init() {
-    /* TODO: Add TSS
-    static mut TSS: TaskStateSegment = TaskStateSegment::new();
-            TSS.interrupt_stack_table[DOUBLE_FAULT_IST_INDEX as usize] = {
-                const STACK_SIZE: usize = 4096;
-                static mut STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
-
-                let stack_start = VirtAddr::from_ptr(&STACK);
-                stack_start + STACK_SIZE
-            };
-    let tss_selector = Gdt.add_entry(Descriptor::tss_segment(&TSS));
-    load_tss(tss_selector);
-    */
-
     let gdt = Gdt::new()
-        .insert(KERNEL_CODE_OFF, GdtEntry::new(0, true, KERNEL_RING))
-        .insert(KERNEL_DATA_OFF, GdtEntry::new(0, false, KERNEL_RING))
-        .insert(USER_CODE_OFF, GdtEntry::new(0, true, USERLAND_RING))
-        .insert(USER_DATA_OFF, GdtEntry::new(0, false, USERLAND_RING));
+        .insert(KERNEL_CODE_SEG, GdtEntry::new(0, true, KERNEL_RING))
+        .insert(KERNEL_DATA_SEG, GdtEntry::new(0, false, KERNEL_RING))
+        .insert(USER_CODE_SEG, GdtEntry::new(0, true, USERLAND_RING))
+        .insert(USER_DATA_SEG, GdtEntry::new(0, false, USERLAND_RING));
 
+    // SAFETY: Gdt and Segments are valid
     unsafe {
-        gdt.load();
+        gdt.load(KERNEL_CODE_SEG, KERNEL_DATA_SEG);
     }
 }
 
@@ -53,7 +40,7 @@ const CS_SIZE: u8 = 1 << 5;
 const DEFAULT_OPERATION_SIZE: u8 = 1 << 6;
 const GRANULARITY: u8 = 1 << 7;
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 #[repr(C)]
 struct GdtEntry {
     seg_lim_low: u16,
@@ -88,7 +75,7 @@ impl GdtEntry {
             base_addr_low: base_addr as u16,
             base_addr_mid: (base_addr >> 16) as u8,
             access: WRITEABLE | DESC_TYPE | SEG_PRESENT | executable | (ring << PRIVILEGE_SHIFT),
-            flags: ((limit >> 16) & 0xF) as u8 | AVL | CS_SIZE | GRANULARITY | long_code_seg,
+            flags: (limit >> 16) as u8 | AVL | CS_SIZE | GRANULARITY | long_code_seg,
             base_addr_high: (base_addr >> 24) as u8,
         }
     }
@@ -96,43 +83,55 @@ impl GdtEntry {
 
 #[repr(C)]
 struct Gdt {
+    entries: [GdtEntry; MAX_ENTRIES],
+}
+
+#[repr(C, packed)]
+struct Gdtr {
     limit: u16,
-    base: [GdtEntry; MAX_ENTRIES],
+    base: *const Gdt,
+}
+
+impl Gdtr {
+    pub fn new(gdt: &Gdt) -> Gdtr {
+        Gdtr {
+            limit: mem::size_of::<[GdtEntry; MAX_ENTRIES]>() as u16 - 1,
+            base: gdt,
+        }
+    }
 }
 
 impl Gdt {
-    pub const fn new() -> Gdt {
-        let entries;
-        // SAFETY: A NULL entry is a valid entry and GdtEntry is 64 bits wide
-        unsafe {
-            entries =
-                mem::transmute::<[u64; MAX_ENTRIES], [GdtEntry; MAX_ENTRIES]>([0u64; MAX_ENTRIES]);
-        };
-
+    pub fn new() -> Gdt {
         Gdt {
-            limit: mem::size_of::<[GdtEntry; MAX_ENTRIES]>() as u16,
-            base: entries,
+            entries: Default::default(),
         }
     }
 
-    pub fn insert(mut self, index: usize, entry: GdtEntry) -> Gdt {
-        self.base[index] = entry;
+    pub fn insert(mut self, seg_selector: usize, entry: GdtEntry) -> Gdt {
+        self.entries[seg_selector >> 3] = entry;
         self
     }
 
     /// Loads the Gdt and reloads segments
     /// Gdt must be valid
-    pub unsafe fn load(self) {
-        static mut GDT: Option<Gdt> = None;
-        GDT = Some(self);
+    pub unsafe fn load(self, code_seg: usize, data_seg: usize) {
+        static mut GDT: MaybeUninit<(Gdtr, Gdt)> = MaybeUninit::uninit();
+        GDT = MaybeUninit::new((Gdtr::new(&self), self));
 
-        asm!("lgdt [{}]", in(reg) GDT.as_ref().unwrap());
+        asm!("lgdt {}", sym GDT);
         asm!("mov ds, ax",
              "mov ss, ax",
              "mov es, ax",
              "mov fs, ax",
              "mov gs, ax",
-             in("ax") KERNEL_DATA_OFF);
-        asm!("ljmp {}, 1f", "1:", const KERNEL_CODE_OFF);
+             in("ax") data_seg);
+        asm!("push {}",
+             "lea  rax, [rip + 1f]",
+             "push rax",
+             "retfq",
+             "1:",
+             in(reg) code_seg,
+             out("rax") _);
     }
 }
