@@ -30,14 +30,10 @@ global_asm!(include_str!("bootloader/stage2.s"));
 /// Initializes hardware
 pub fn init() {
     gdt::init();
-    unsafe {
-        // IDT is valid
-        interrupt::init_idt();
-    }
+    interrupt::init();
     interrupt::init_pics();
-    x86_64_crate::instructions::interrupts::enable();
+    interrupt::enable();
 }
-
 /// Unit test runner
 #[cfg(test)]
 mod test {
