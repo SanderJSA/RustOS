@@ -1,11 +1,9 @@
 use core::mem::{self, MaybeUninit};
 
-pub const DOUBLE_FAULT_IST_INDEX: u16 = 0;
-
 const KERNEL_RING: u8 = 0;
 const USERLAND_RING: u8 = 3;
 
-const KERNEL_CODE_SEG: Segment = Segment::new(1, KERNEL_RING);
+pub const KERNEL_CODE_SEG: Segment = Segment::new(1, KERNEL_RING);
 const KERNEL_DATA_SEG: Segment = Segment::new(2, KERNEL_RING);
 const USER_CODE_SEG: Segment = Segment::new(3, USERLAND_RING);
 const USER_DATA_SEG: Segment = Segment::new(4, USERLAND_RING);
@@ -25,15 +23,25 @@ pub fn init() {
     }
 }
 
-struct Segment(u64);
+pub struct Segment(u16);
 
 impl Segment {
-    pub const fn new(offset: u64, privilege: u8) -> Segment {
-        Segment((offset << 3) | (privilege as u64 & 0b11))
+    pub const fn new(offset: u16, privilege: u8) -> Segment {
+        Segment((offset << 3) | (privilege as u16 & 0b11))
     }
 
     pub const fn get_offset(&self) -> usize {
         (self.0 >> 3) as usize
+    }
+
+    pub const fn get_privilege(&self) -> u8 {
+        (self.0 & 0b11) as u8
+    }
+}
+
+impl From<Segment> for u16 {
+    fn from(seg: Segment) -> Self {
+        seg.0
     }
 }
 
@@ -95,7 +103,7 @@ struct Gdt {
 #[repr(C, packed)]
 struct Gdtr {
     limit: u16,
-    base: *const Gdt,
+    base: &'static Gdt,
 }
 
 impl Gdt {
@@ -113,30 +121,32 @@ impl Gdt {
     /// Loads the Gdt and reloads segments
     /// Gdt must be valid
     pub unsafe fn load(self, code_seg: Segment, data_seg: Segment) {
-        static mut GDT: MaybeUninit<(Gdtr, Gdt)> = MaybeUninit::uninit();
-        GDT = MaybeUninit::new((Gdtr::new(&self), self));
+        static mut GDT: MaybeUninit<Gdt> = MaybeUninit::uninit();
+        static mut GDTR: MaybeUninit<Gdtr> = MaybeUninit::uninit();
+        GDT = MaybeUninit::new(self);
+        GDTR = MaybeUninit::new(Gdtr::new(GDT.assume_init_ref()));
 
-        asm!("lgdt {}", sym GDT);
+        asm!("lgdt {}", sym GDTR);
         asm!("mov ds, ax",
              "mov ss, ax",
              "mov es, ax",
              "mov fs, ax",
              "mov gs, ax",
-             in("ax") *((&data_seg as *const _) as *const u64));
-        asm!("push {}",
+             in("ax") u16::from(data_seg));
+        asm!("push {:r}",
              "lea  rax, [rip + 1f]",
              "push rax",
              "retfq",
              "1:",
-             in(reg) *((&code_seg as *const _) as *const u64),
+             in(reg) u16::from(code_seg),
              out("rax") _);
     }
 }
 
 impl Gdtr {
-    pub fn new(gdt: &Gdt) -> Gdtr {
+    pub fn new(gdt: &'static Gdt) -> Gdtr {
         Gdtr {
-            limit: mem::size_of::<[GdtEntry; MAX_ENTRIES]>() as u16 - 1,
+            limit: mem::size_of::<Gdt>() as u16,
             base: gdt,
         }
     }
