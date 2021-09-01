@@ -3,9 +3,10 @@
 
 #[no_mangle]
 pub unsafe extern "C" fn memset(dest: *mut u8, c: i32, n: usize) -> *mut u8 {
-    let c = c as u8;
-    for i in 0..n as isize {
-        *dest.offset(i) = c;
+    let mut i = 0;
+    while i < n {
+        *dest.add(i) = c as u8;
+        i += 1;
     }
     dest
 }
