@@ -36,18 +36,16 @@ extern "x86-interrupt" fn timer_handler(_stack_frame: InterruptFrame) {
 }
 
 extern "x86-interrupt" fn keyboard_handler(_stack_frame: InterruptFrame) {
-    let scan_code: u8 = unsafe {
-        // KEYBOARD_PORT exists
-        port::inb(KEYBOARD_PORT)
-    };
+    // SAFETY: KEYBOARD_PORT exists and has a value
+    let scan_code = unsafe { port::inb(KEYBOARD_PORT) };
     ps2_keyboard::update_stdin(scan_code);
     PICS.obtain()
         .notify_end_of_interrupt(InterruptIndex::Keyboard as u8);
 }
 extern "x86-interrupt" fn page_fault_handler(stack_frame: InterruptFrame, error_code: u64) {
     let address: usize;
+    // SAFETY: rax contains invalid_access when triggering a page fault
     unsafe {
-        // Will always return address of invalid_access
         asm!("", out("rax") address);
     }
 
@@ -131,14 +129,12 @@ impl Idt {
 
     /// IDT must be valid
     pub unsafe fn load(self) {
-        asm!("xchg bx, bx");
         static mut IDT: MaybeUninit<Idt> = MaybeUninit::uninit();
         static mut IDTR: MaybeUninit<Idtr> = MaybeUninit::uninit();
         IDT = MaybeUninit::new(self);
         IDTR = MaybeUninit::new(Idtr::new(IDT.assume_init_ref()));
 
         asm!("lidt {}", sym IDTR);
-        asm!("xchg bx, bx");
     }
 }
 
@@ -181,7 +177,6 @@ pub fn init() {
 
     // SAFETY: IDT is filled with valid handlers of the correct type
     unsafe {
-        asm!("xchg bx, bx");
         idt.load();
     }
 }
