@@ -8,7 +8,7 @@ use kernel::*;
 
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
-    init();
+    arch::init();
 
     run_tty();
 
