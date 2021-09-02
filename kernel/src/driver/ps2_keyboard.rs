@@ -13,7 +13,7 @@ struct Buffer {
 impl Buffer {
     const fn new() -> Buffer {
         Buffer {
-            data: [' ' as u8; BUFFER_SIZE],
+            data: [b' '; BUFFER_SIZE],
             start: 0,
             end: 0,
         }
@@ -49,7 +49,7 @@ impl Buffer {
                 cur = self.end;
             }
 
-            if self.data[cur] == '\n' as u8 {
+            if self.data[cur] == b'\n' {
                 let string = &self.data[self.start..cur + 1];
                 self.start = cur + 1;
                 return str::from_utf8(string).unwrap();

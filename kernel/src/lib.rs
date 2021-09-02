@@ -7,6 +7,7 @@
 #![feature(alloc_error_handler)]
 #![test_runner(test::test_runner)]
 #![reexport_test_harness_main = "test_main"]
+#![warn(clippy::all)]
 
 extern crate alloc;
 

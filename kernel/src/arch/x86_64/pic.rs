@@ -59,6 +59,11 @@ impl ChainedPics {
         }
     }
 
+    /// Initialize the Programmable Interrupt Controller
+    ///
+    /// # Safety
+    ///
+    /// Offsets need to be valid
     pub unsafe fn initialize(&mut self) {
         let io_wait = || outb(0x80, 0);
 
