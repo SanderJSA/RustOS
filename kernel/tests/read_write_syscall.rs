@@ -12,7 +12,7 @@ use kernel::*;
 #[no_mangle]
 #[link_section = ".kernel_start"]
 extern "C" fn _start() -> ! {
-    init();
+    arch::init();
 
     let mut file = File::create("test_file").unwrap();
 

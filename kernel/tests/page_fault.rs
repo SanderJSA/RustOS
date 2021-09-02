@@ -12,7 +12,7 @@ use kernel::*;
 #[no_mangle]
 #[link_section = ".kernel_start"]
 extern "C" fn _start() -> ! {
-    init();
+    arch::init();
 
     unsafe {
         read_volatile(0xFFFFFFFFFFF as *const u32);
