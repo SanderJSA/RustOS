@@ -3,10 +3,10 @@ use core::mem::{self, MaybeUninit};
 const KERNEL_RING: u8 = 0;
 const USERLAND_RING: u8 = 3;
 
-pub const KERNEL_CODE_SEG: Segment = Segment::new(1, KERNEL_RING);
-const KERNEL_DATA_SEG: Segment = Segment::new(2, KERNEL_RING);
-const USER_CODE_SEG: Segment = Segment::new(3, USERLAND_RING);
-const USER_DATA_SEG: Segment = Segment::new(4, USERLAND_RING);
+pub const KERNEL_CODE_SEG: Segment = Segment::kernel(1);
+const KERNEL_DATA_SEG: Segment = Segment::kernel(2);
+const USER_CODE_SEG: Segment = Segment::userland(3);
+const USER_DATA_SEG: Segment = Segment::userland(4);
 
 const MAX_ENTRIES: usize = 5;
 
@@ -28,6 +28,14 @@ pub struct Segment(u16);
 impl Segment {
     pub const fn new(offset: u16, privilege: u8) -> Segment {
         Segment((offset << 3) | (privilege as u16 & 0b11))
+    }
+
+    pub const fn kernel(offset: u16) -> Segment {
+        Segment::new(offset, KERNEL_RING)
+    }
+
+    pub const fn userland(offset: u16) -> Segment {
+        Segment::new(offset, USERLAND_RING)
     }
 
     pub const fn get_offset(&self) -> usize {
