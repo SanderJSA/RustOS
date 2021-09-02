@@ -1,4 +1,18 @@
 use super::port::{inb, outb};
+use crate::utils::lazy_static::LazyStatic;
+
+pub const PIC_1_OFFSET: u8 = 32;
+pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
+
+pub static PICS: LazyStatic<ChainedPics> =
+    LazyStatic::new(|| ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET));
+
+pub fn init() {
+    unsafe {
+        // Both PIC are created with valid offsets
+        PICS.obtain().initialize();
+    }
+}
 
 const PIC_INIT: u8 = 0x11;
 const END_OF_INTERRUPT: u8 = 0x20;

@@ -1,27 +1,13 @@
 use super::gdt::KERNEL_CODE_SEG;
-use super::pic::ChainedPics;
+use super::pic::{PICS, PIC_1_OFFSET};
 use super::port;
 use crate::driver::ps2_keyboard;
 use crate::println;
-use crate::utils::lazy_static::LazyStatic;
 use core::mem::{self, MaybeUninit};
 
 const MAX_ENTRIES: usize = 256;
 
 const KEYBOARD_PORT: u16 = 0x60;
-
-pub const PIC_1_OFFSET: u8 = 32;
-pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
-
-pub static PICS: LazyStatic<ChainedPics> =
-    LazyStatic::new(|| ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET));
-
-pub fn init_pics() {
-    unsafe {
-        // Both PIC are created with valid offsets
-        PICS.obtain().initialize();
-    }
-}
 
 #[derive(Debug)]
 #[repr(C)]

@@ -6,7 +6,6 @@
 #![feature(custom_test_frameworks)]
 #![feature(alloc_error_handler)]
 #![test_runner(test::test_runner)]
-#![feature(iter_intersperse)]
 #![reexport_test_harness_main = "test_main"]
 
 extern crate alloc;
@@ -31,7 +30,7 @@ global_asm!(include_str!("bootloader/stage2.s"));
 pub fn init() {
     gdt::init();
     interrupt::init();
-    interrupt::init_pics();
+    pic::init();
     interrupt::enable();
 }
 /// Unit test runner
