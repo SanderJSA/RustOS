@@ -89,9 +89,18 @@ impl GdtEntry {
             base_addr_low: base_addr as u16,
             base_addr_mid: (base_addr >> 16) as u8,
             access: WRITEABLE | DESC_TYPE | SEG_PRESENT | executable | (ring << PRIVILEGE_SHIFT),
-            flags: (limit >> 16) as u8 | AVL | CS_SIZE | GRANULARITY | long_code_seg,
+            flags: (limit >> 16) as u8 | AVL | GRANULARITY | long_code_seg,
             base_addr_high: (base_addr >> 24) as u8,
         }
+    }
+
+    pub fn is_code_segment(&self) -> bool {
+        self.access & (SEG_PRESENT | EXECUTABLE) == (SEG_PRESENT | EXECUTABLE)
+            && self.flags & CS_SIZE == CS_SIZE
+    }
+
+    pub fn is_data_segment(&self) -> bool {
+        self.access & (SEG_PRESENT | EXECUTABLE) == SEG_PRESENT && self.flags & CS_SIZE == 0
     }
 }
 
@@ -119,27 +128,20 @@ impl Gdt {
     }
 
     /// Loads the Gdt and reloads segments
-    /// Gdt must be valid
+    /// Is unsafe if GDT is not properly filled
+    /// Panics if code_seg and data_seg don't point to their respective entries
     pub unsafe fn load(self, code_seg: Segment, data_seg: Segment) {
+        assert!(self.entries[code_seg.get_offset()].is_code_segment());
+        assert!(self.entries[data_seg.get_offset()].is_data_segment());
+
         static mut GDT: MaybeUninit<Gdt> = MaybeUninit::uninit();
         static mut GDTR: MaybeUninit<Gdtr> = MaybeUninit::uninit();
         GDT = MaybeUninit::new(self);
         GDTR = MaybeUninit::new(Gdtr::new(GDT.assume_init_ref()));
 
         asm!("lgdt {}", sym GDTR);
-        asm!("mov ds, ax",
-             "mov ss, ax",
-             "mov es, ax",
-             "mov fs, ax",
-             "mov gs, ax",
-             in("ax") u16::from(data_seg));
-        asm!("push {:r}",
-             "lea  rax, [rip + 1f]",
-             "push rax",
-             "retfq",
-             "1:",
-             in(reg) u16::from(code_seg),
-             out("rax") _);
+        reload_data_seg(data_seg);
+        reload_code_seg(code_seg);
     }
 }
 
@@ -150,4 +152,24 @@ impl Gdtr {
             base: gdt,
         }
     }
+}
+
+unsafe fn reload_data_seg(seg: Segment) {
+    // Set every data segment to segment selector
+    asm!("mov ds, ax",
+         "mov ss, ax",
+         "mov es, ax",
+         "mov fs, ax",
+         "mov gs, ax",
+         in("ax") u16::from(seg));
+}
+
+unsafe fn reload_code_seg(seg: Segment) {
+    asm!("push {:r}",             // Push seg
+         "lea {tmp}, [rip + 1f]", // Push rip
+         "push {tmp}",            //
+         "retfq",                 // Perform a far return which pops rip then cs
+         "1:",                    //
+         in(reg) u16::from(seg),
+         tmp = out(reg) _);
 }
