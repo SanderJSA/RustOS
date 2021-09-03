@@ -6,12 +6,12 @@
 #![feature(custom_test_frameworks)]
 #![feature(alloc_error_handler)]
 #![test_runner(test::test_runner)]
-#![feature(iter_intersperse)]
 #![reexport_test_harness_main = "test_main"]
+#![warn(clippy::all)]
 
 extern crate alloc;
 
-mod arch;
+pub mod arch;
 pub mod driver;
 #[allow(dead_code)]
 pub mod file_system;
@@ -19,24 +19,12 @@ pub mod memory_manager;
 mod tty;
 mod utils;
 
-use arch::*;
 pub use arch::{ata, serial};
 pub use arch::{exit_qemu, QemuExitCode};
 pub use tty::run_tty;
 
 global_asm!(include_str!("bootloader/stage1.s"));
 global_asm!(include_str!("bootloader/stage2.s"));
-
-/// Initializes hardware
-pub fn init() {
-    gdt::init();
-    unsafe {
-        // IDT is valid
-        interrupt::init_idt();
-    }
-    interrupt::init_pics();
-    x86_64_crate::instructions::interrupts::enable();
-}
 
 /// Unit test runner
 #[cfg(test)]
@@ -47,7 +35,7 @@ mod test {
 
     #[no_mangle]
     pub extern "C" fn _start() -> ! {
-        init();
+        arch::init();
         test_main();
         exit_qemu(QemuExitCode::Success)
     }
@@ -61,7 +49,7 @@ mod test {
 
     /// Create a wrapper around tests so we can print the test name
     pub trait Testable {
-        fn run(&self) -> ();
+        fn run(&self);
     }
 
     impl<T: Fn()> Testable for T {

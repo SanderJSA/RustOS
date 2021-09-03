@@ -60,3 +60,9 @@ impl FrameAllocator {
         true
     }
 }
+
+impl Default for FrameAllocator {
+    fn default() -> Self {
+        Self::new()
+    }
+}

@@ -11,7 +11,7 @@ use kernel::*;
 #[no_mangle]
 #[link_section = ".kernel_start"]
 extern "C" fn _start() -> ! {
-    init();
+    arch::init();
     println!("simple print");
 
     serial_println!("Simple boot: [OK]");

@@ -110,10 +110,16 @@ impl Writer {
 
             let color_code = self.color_code;
             self.buffer.chars[row][col] = ScreenChar {
-                char: ' ' as u8,
+                char: b' ',
                 color_code,
             };
         }
+    }
+}
+
+impl Default for Writer {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

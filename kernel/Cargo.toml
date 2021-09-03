@@ -4,9 +4,6 @@ version = "0.1.0"
 authors = ["Sander JSA <sanderjsa@hotmail.com>"]
 edition = "2018"
 
-[dependencies]
-x86_64_crate = { package = "x86_64", version = "0.14.4" }
-
 [[bin]]
 name = "kernel"
 test = false

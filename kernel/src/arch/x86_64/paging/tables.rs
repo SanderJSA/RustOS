@@ -39,7 +39,7 @@ impl Entry {
     /// Returns Frame containing address of entry
     pub fn address(&self) -> Option<Frame> {
         if self.contains(EntryFlag::Present as u64) {
-            Some(Frame::from_address(self.0 as usize & 0x000FFFFF_FFFFF000))
+            Some(Frame::from_address(self.0 as usize & 0x000F_FFFF_FFFF_F000))
         } else {
             None
         }
@@ -78,7 +78,7 @@ impl TableLevel for Level2 {
 }
 impl TableLevel for Level1 {
     fn index(page: usize) -> usize {
-        (page >> 0) & 0o777
+        page & 0o777
     }
 }
 
@@ -121,7 +121,7 @@ where
 
 // Returns the level 4 table by doing 4 recursion on level 4 table
 pub fn get_level4() -> &'static mut Table<Level4> {
-    unsafe { &mut *(0xFFFFFFFF_FFFFF000 as *mut Table<Level4>) }
+    unsafe { &mut *(0xFFFF_FFFF_FFFF_F000 as *mut Table<Level4>) }
 }
 
 /// Methods that only apply to tables that point to other tables
@@ -198,7 +198,7 @@ pub fn translate_addr(virt_addr: usize) -> Option<usize> {
         .and_then(|p3| p3.next_table(Level3::index(page)))
         .and_then(|p2| p2.next_table(Level2::index(page)))
         .and_then(|p1| p1[Level1::index(page)].address())
-        .and_then(|frame| Some(frame.base_addr + offset))
+        .map(|frame| frame.base_addr + offset)
 }
 
 pub fn map_to(virt_addr: usize, phys_addr: usize, flags: u64, allocator: &mut FrameAllocator) {

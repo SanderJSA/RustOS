@@ -11,7 +11,7 @@ use kernel::*;
 #[no_mangle]
 #[link_section = ".kernel_start"]
 extern "C" fn _start() -> ! {
-    init();
+    arch::init();
 
     // Get ourselves a buffer to play around with
     let mut buffer = [0u8; 2048];

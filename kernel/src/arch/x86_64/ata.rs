@@ -29,10 +29,10 @@ const STATUS_READY: u8 = 0x40;
 pub fn read_sectors(lba: usize, sectors: u8, dst: &mut [u8]) {
     assert!(sectors > 0);
     set_up_drive(lba, sectors, ATA_MASTER);
+    // SAFETY: Drive is ready and has lba and sectors given
+    // COMMAND_PORT is a valid port
+    // READ_PIO is a valid value
     unsafe {
-        // Drive is ready and has lba and sectors given
-        // COMMAND_PORT is a valid port
-        // READ_PIO is a valid value
         port::outb(COMMAND_PORT, READ_PIO);
     }
 
@@ -40,12 +40,9 @@ pub fn read_sectors(lba: usize, sectors: u8, dst: &mut [u8]) {
         wait_drive_ready();
 
         for byte in (0..512).step_by(2) {
-            let pair;
-            unsafe {
-                // DATA_PORT is a valid port
-                // Drive has data data ready to be read
-                pair = port::inw(DATA_PORT);
-            }
+            // SAFETY: DATA_PORT is a valid port
+            // Drive has data data ready to be read
+            let pair = unsafe { port::inw(DATA_PORT) };
             dst[sector * 512 + byte] = pair as u8;
             dst[sector * 512 + byte + 1] = (pair >> 8) as u8;
         }
@@ -56,10 +53,10 @@ pub fn read_sectors(lba: usize, sectors: u8, dst: &mut [u8]) {
 pub fn write_sectors(lba: usize, sectors: u8, src: &[u8]) {
     assert!(sectors > 0);
     set_up_drive(lba, sectors, ATA_MASTER);
+    // SAFETY: Drive is ready and has lba and sectors given
+    // COMMAND_PORT is a valid port
+    // WRITE_PIO is a valid value
     unsafe {
-        // Drive is ready and has lba and sectors given
-        // COMMAND_PORT is a valid port
-        // WRITE_PIO is a valid value
         port::outb(COMMAND_PORT, WRITE_PIO);
     }
 
@@ -68,17 +65,17 @@ pub fn write_sectors(lba: usize, sectors: u8, src: &[u8]) {
 
         for i in (0..512).step_by(2) {
             let value = to_word(src, j * 512 + i);
+            // SAFETY: DATA_PORT is a valid port
+            // Drive is writing data and has sectors left to write
             unsafe {
-                // DATA_PORT is a valid port
-                // Drive is writing data and has sectors left to write
                 port::outw(DATA_PORT, value);
             }
         }
     }
 
+    // SAFETY: COMMAND_PORT is a valid port
+    // CACHE_FLUSH is a valid value
     unsafe {
-        // COMMAND_PORT is a valid port
-        // CACHE_FLUSH is a valid value
         port::outb(COMMAND_PORT, CACHE_FLUSH);
     }
 }
@@ -87,10 +84,10 @@ pub fn write_sectors(lba: usize, sectors: u8, src: &[u8]) {
 pub fn get_storage() -> u32 {
     // send IDENTIFY command
     set_up_drive(0, 0, 0xA0);
+    // SAFETY: Drive is ready and has lba and sectors set to 0
+    // COMMAND_PORT is a valid port
+    // IDENTIFY is a valid value
     unsafe {
-        // Drive is ready and has lba and sectors set to 0
-        // COMMAND_PORT is a valid port
-        // IDENTIFY is a valid value
         port::outb(COMMAND_PORT, IDENTIFY);
     }
 
@@ -103,8 +100,8 @@ pub fn get_storage() -> u32 {
     while read_drive_status() & STATUS_BUSY != 0 {}
 
     // Check if it is an ATA Drive
+    // SAFETY: LBA_LOW and LBA_MID are both valid ports
     unsafe {
-        // LBA_LOW and LBA_MID are both valid
         if port::inb(LBA_LOW) != 0 || port::inb(LBA_MID) != 0 {
             return 0;
         }
@@ -112,12 +109,10 @@ pub fn get_storage() -> u32 {
 
     // Retrieve data generated
     let mut buffer = [0; 256];
-    for i in 0..256 {
-        unsafe {
-            // there are 256 16bits values generated
-            // Retrievable on COMMAND_PORT
-            buffer[i] = port::inw(COMMAND_PORT);
-        }
+    for word in &mut buffer {
+        // SAFETY: there are 256 16bits values generated
+        // Retrievable on COMMAND_PORT
+        *word = unsafe { port::inw(COMMAND_PORT) };
     }
 
     // Get available storage for 28bit LBA
@@ -128,10 +123,10 @@ fn set_up_drive(lba: usize, sectors: u8, ata_drive: u8) {
     assert!(lba < 0x1000000); // lba must fit in 28bits
     wait_drive_ready();
 
+    // SAFETY: Drive is ready to receive commands
+    // Ports are valid
+    // LBA fits in 28bits => values are valid
     unsafe {
-        // Drive is ready to receive commands
-        // Ports are valid
-        // LBA fits in 28bits => values are valid
         port::outb(DEVICE_SELECT, (lba >> 24) as u8 | ata_drive);
         port::outb(SECTOR_COUNT, sectors);
         port::outb(LBA_LOW, lba as u8);
@@ -156,10 +151,8 @@ fn is_drive_ready() -> bool {
 }
 
 fn read_drive_status() -> u8 {
-    unsafe {
-        // COMMAND_PORT is a valid port
-        port::inb(COMMAND_PORT)
-    }
+    // SAFETY: COMMAND_PORT is a valid port
+    unsafe { port::inb(COMMAND_PORT) }
 }
 
 /// Translates two u8 in a slice into a u16

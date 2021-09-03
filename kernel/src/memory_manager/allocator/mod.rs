@@ -8,7 +8,7 @@ use slab::Slab;
 
 #[global_allocator]
 static GLOBAL_ALLOCATOR: LockedAllocator = LockedAllocator {
-    0: LazyStatic::new(Allocator::new),
+    0: LazyStatic::new(Allocator::default),
 };
 
 #[alloc_error_handler]
@@ -30,18 +30,6 @@ pub struct Allocator {
 }
 
 impl Allocator {
-    pub fn new() -> Allocator {
-        Allocator {
-            slab_8: Slab::new(8),
-            slab_16: Slab::new(16),
-            slab_32: Slab::new(32),
-            slab_64: Slab::new(64),
-            slab_128: Slab::new(128),
-            slab_256: Slab::new(256),
-            slab_512: Slab::new(512),
-        }
-    }
-
     pub fn alloc(&mut self, layout: Layout) -> *mut u8 {
         if layout.size() <= 8 && layout.align() <= 8 {
             self.slab_8.allocate()
@@ -85,6 +73,20 @@ impl Allocator {
     }
 }
 
+impl Default for Allocator {
+    fn default() -> Self {
+        Allocator {
+            slab_8: Slab::new(8),
+            slab_16: Slab::new(16),
+            slab_32: Slab::new(32),
+            slab_64: Slab::new(64),
+            slab_128: Slab::new(128),
+            slab_256: Slab::new(256),
+            slab_512: Slab::new(512),
+        }
+    }
+}
+
 pub struct LockedAllocator(LazyStatic<Allocator>);
 unsafe impl GlobalAlloc for LockedAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
@@ -104,7 +106,7 @@ mod test {
 
     #[test_case]
     fn page_alloc() {
-        let mut allocator = Allocator::new();
+        let mut allocator = Allocator::default();
         let layout = Layout::from_size_align(PAGE_SIZE, PAGE_SIZE).unwrap();
 
         let chunk = allocator.alloc(layout);
@@ -123,7 +125,7 @@ mod test {
 
     #[test_case]
     fn allocate_bytes() {
-        let mut allocator = Allocator::new();
+        let mut allocator = Allocator::default();
         let layout = Layout::from_size_align(8, 8).unwrap();
 
         let ptr1 = allocator.alloc(layout) as *mut i64;
@@ -162,7 +164,7 @@ mod test {
 
     #[test_case]
     fn two_pages_allocations() {
-        let mut allocator = Allocator::new();
+        let mut allocator = Allocator::default();
         let layout = Layout::from_size_align(512, 512).unwrap();
 
         let ptr1 = allocator.alloc(layout) as *mut i64;

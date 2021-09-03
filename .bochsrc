@@ -8,7 +8,8 @@ clock: sync=realtime
 # gdbstub: enabled=1, port=1234, text_base=0, data_base=0, bss_base=0
 
 # configure the disk drive
-ata0-master: type=disk, path="target/x86_64-RustOS/debug/kernel.img", mode=flat, cylinders=1, heads=8, spt=41, translation=auto
+# ata0-master: type=disk, path="target/x86_64-RustOS/debug/kernel.img", mode=flat, cylinders=1, heads=8, spt=41, translation=auto
+ata0-master: type=disk, path="target/x86_64-RustOS/release/kernel.img", mode=flat, cylinders=9, heads=4, spt=7, translation=auto
 boot: disk
 
 
@@ -25,3 +26,5 @@ com1: enabled=1, mode=file, dev=/dev/stdout
 # info: action=report
 # error: action=report
 # panic: action=ask
+cpu: count=1, ips=10000000, reset_on_triple_fault=0
+magic_break: enabled=1
