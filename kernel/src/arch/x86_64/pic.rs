@@ -1,117 +1,89 @@
-use super::port::{inb, outb};
+use super::port::outb;
 use crate::utils::lazy_static::LazyStatic;
 
 pub const PIC_1_OFFSET: u8 = 32;
 pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
 
-pub static PICS: LazyStatic<ChainedPics> =
-    LazyStatic::new(|| ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET));
+const MASTER_PIC: u16 = 0x20;
+const SLAVE_PIC: u16 = 0xA0;
+const DATA_OFFSET: u16 = 1;
+
+const IRQS_PER_PIC: u8 = 8;
+const SLAVE_IRQ: u8 = 2;
+const ICW1: u8 = 0b00010001;
+const ICW4: u8 = 0b00000001;
+const END_OF_INTERRUPT: u8 = 0x20;
+
+pub static PICS: LazyStatic<ChainedPics> = LazyStatic::new(ChainedPics::new);
 
 pub fn init() {
-    unsafe {
-        // Both PIC are created with valid offsets
-        PICS.obtain().initialize();
-    }
+    PICS.obtain();
 }
-
-const PIC_INIT: u8 = 0x11;
-const END_OF_INTERRUPT: u8 = 0x20;
-const MODE_8086: u8 = 0x01;
 
 struct Pic {
     offset: u8,
-    command_port: u16,
-    data_port: u16,
+    port: u16,
 }
 
 impl Pic {
-    fn handles_interrupt(&self, interupt_id: u8) -> bool {
-        self.offset <= interupt_id && interupt_id < self.offset + 8
+    pub unsafe fn new(offset: u8, port: u16, is_master: bool) -> Pic {
+        outb(port, ICW1);
+        outb(port + DATA_OFFSET, offset);
+        match is_master {
+            true => outb(port + DATA_OFFSET, 1 << SLAVE_IRQ),
+            false => outb(port + DATA_OFFSET, SLAVE_IRQ),
+        };
+        outb(port + DATA_OFFSET, ICW4);
+
+        Pic { offset, port }
     }
 
-    fn end_of_interrupt(&self) {
-        unsafe {
-            // Safe as long as PIC is initialized before interrupts are enabled
-            outb(self.command_port, END_OF_INTERRUPT);
-        }
+    pub fn handles_interrupt(&self, interupt_id: u8) -> bool {
+        (self.offset..self.offset + IRQS_PER_PIC).contains(&interupt_id)
+    }
+
+    pub unsafe fn end_of_interrupt(&self) {
+        outb(self.port, END_OF_INTERRUPT);
     }
 }
 
 pub struct ChainedPics {
-    pics: [Pic; 2],
+    master: Pic,
+    slave: Pic,
 }
 
 impl ChainedPics {
-    pub const fn new(offset1: u8, offset2: u8) -> ChainedPics {
-        ChainedPics {
-            pics: [
-                Pic {
-                    offset: offset1,
-                    command_port: 0x20,
-                    data_port: 0x21,
-                },
-                Pic {
-                    offset: offset2,
-                    command_port: 0xA0,
-                    data_port: 0xA1,
-                },
-            ],
-        }
-    }
-
-    /// Initialize the Programmable Interrupt Controller
-    ///
-    /// # Safety
-    ///
-    /// Offsets need to be valid
-    pub unsafe fn initialize(&mut self) {
-        let io_wait = || outb(0x80, 0);
-
-        // Get PIC masks
-        let mask_pic1 = inb(self.pics[0].data_port);
-        let mask_pic2 = inb(self.pics[1].data_port);
-
-        // Initialize PIC with correct args
-        outb(self.pics[0].command_port, PIC_INIT);
-        io_wait();
-        outb(self.pics[1].command_port, PIC_INIT);
-        io_wait();
-
-        outb(self.pics[0].data_port, self.pics[0].offset);
-        io_wait();
-        outb(self.pics[1].data_port, self.pics[1].offset);
-        io_wait();
-
-        outb(self.pics[0].data_port, 4);
-        io_wait();
-        outb(self.pics[1].data_port, 2);
-        io_wait();
-
-        outb(self.pics[0].data_port, MODE_8086);
-        io_wait();
-        outb(self.pics[1].data_port, MODE_8086);
-        io_wait();
-
-        // Restore masks
-        outb(self.pics[0].data_port, mask_pic1);
-        outb(self.pics[1].data_port, mask_pic2);
-    }
-
-    pub fn handles_interrupt(&self, interrupt_id: u8) -> bool {
-        self.pics.iter().any(|p| p.handles_interrupt(interrupt_id))
-    }
-
-    pub fn notify_end_of_interrupt(&mut self, interrupt_id: u8) {
-        if self.handles_interrupt(interrupt_id) {
-            if self.pics[1].handles_interrupt(interrupt_id) {
-                self.pics[1].end_of_interrupt();
+    pub fn new() -> ChainedPics {
+        // SAFETY: MASTER_PIC and SLAVE_PIC are both valid PIC ports
+        unsafe {
+            ChainedPics {
+                master: Pic::new(PIC_1_OFFSET, MASTER_PIC, true),
+                slave: Pic::new(PIC_2_OFFSET, SLAVE_PIC, false),
             }
-            self.pics[0].end_of_interrupt();
         }
     }
 
-    pub fn end_all_interrupts(&mut self) {
-        self.pics[0].end_of_interrupt();
-        self.pics[1].end_of_interrupt();
+    pub fn notify_end_of_interrupt(&self, interrupt_id: u8) {
+        // SAFETY: Master and slave PIC are both initialized
+        unsafe {
+            self.master.end_of_interrupt();
+            if self.slave.handles_interrupt(interrupt_id) {
+                self.slave.end_of_interrupt();
+            }
+        }
+    }
+
+    pub fn end_all_interrupts(&self) {
+        // SAFETY: Master and slave PIC are both initialized
+        unsafe {
+            self.master.end_of_interrupt();
+            self.slave.end_of_interrupt();
+        }
+    }
+}
+
+impl Default for ChainedPics {
+    fn default() -> Self {
+        Self::new()
     }
 }
