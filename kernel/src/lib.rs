@@ -1,4 +1,5 @@
 #![no_std]
+#![feature(iter_intersperse)]
 #![cfg_attr(test, no_main)]
 #![feature(asm)]
 #![feature(global_asm)]

@@ -6,4 +6,5 @@ pub fn init() {
     interrupt::init();
     pic::init();
     interrupt::enable();
+    pci::init();
 }

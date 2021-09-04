@@ -4,6 +4,7 @@ pub mod ata;
 pub mod gdt;
 pub mod interrupt;
 pub mod paging;
+pub mod pci;
 pub mod pic;
 pub mod port;
 pub mod serial;
