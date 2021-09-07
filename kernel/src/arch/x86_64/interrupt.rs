@@ -44,13 +44,13 @@ extern "x86-interrupt" fn keyboard_handler(_stack_frame: InterruptFrame) {
 }
 extern "x86-interrupt" fn page_fault_handler(stack_frame: InterruptFrame, error_code: u64) {
     let address: usize;
-    // SAFETY: rax contains invalid_access when triggering a page fault
+    // SAFETY: cr2 contains invalid_access when triggering a page fault
     unsafe {
-        asm!("", out("rax") address);
+        asm!("mov {}, cr2", out(reg) address);
     }
 
     println!("EXCEPTION: PAGE FAULT");
-    println!("Accessed Address: {}", address);
+    println!("Accessed Address: {:x}", address);
     println!("Error Code: {:?}", error_code);
     println!("{:#?}", stack_frame);
     panic!();
