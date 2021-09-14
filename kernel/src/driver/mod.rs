@@ -9,7 +9,7 @@ use alloc::vec::Vec;
 
 pub fn init(devices: &Vec<Device>) {
     for device in devices.iter() {
-        if device.class == intel_8254x::DEVICE_TYPE {
+        if device.class() == intel_8254x::DEVICE_TYPE {
             intel_8254x::init(device)
         }
     }

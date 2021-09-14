@@ -6,13 +6,14 @@ const CONFIG_ADDRESS: u16 = 0xCF8;
 const CONFIG_DATA: u16 = 0xCFC;
 const ENABLE: u32 = 1 << 31;
 
-pub const VENDOR_ID: u8 = 0;
+const VENDOR_ID: u8 = 0;
 pub const COMMAND: u8 = 4;
-pub const CLASS: u8 = 10;
-pub const HEADER_TYPE: u8 = 14;
+const CLASS: u8 = 10;
+const HEADER_TYPE: u8 = 14;
+const BAR: u8 = 16;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DeviceType {
+pub enum DeviceClass {
     EthernetController,
     VgaCompatibleController,
     HostBridge,
@@ -20,14 +21,14 @@ pub enum DeviceType {
     Unknown(u16),
 }
 
-impl DeviceType {
-    pub fn new(class: u16) -> DeviceType {
+impl DeviceClass {
+    pub fn new(class: u16) -> DeviceClass {
         match class {
-            0x02_00 => DeviceType::EthernetController,
-            0x03_00 => DeviceType::VgaCompatibleController,
-            0x06_00 => DeviceType::HostBridge,
-            0x06_01 => DeviceType::IsaBridge,
-            _ => DeviceType::Unknown(class),
+            0x02_00 => DeviceClass::EthernetController,
+            0x03_00 => DeviceClass::VgaCompatibleController,
+            0x06_00 => DeviceClass::HostBridge,
+            0x06_01 => DeviceClass::IsaBridge,
+            _ => DeviceClass::Unknown(class),
         }
     }
 }
@@ -41,8 +42,8 @@ pub struct DeviceId {
 impl DeviceId {
     pub fn new(device_id: u32) -> DeviceId {
         DeviceId {
-            vendor_id: (device_id >> 16) as u16,
-            device_id: device_id as u16,
+            vendor_id: device_id as u16,
+            device_id: (device_id >> 16) as u16,
         }
     }
 }
@@ -51,17 +52,53 @@ impl DeviceId {
 pub struct Device {
     pub bus: u8,
     pub slot: u8,
-    pub class: DeviceType,
-    id: DeviceId,
 }
 
 impl Device {
-    pub fn new(bus: u8, slot: u8, class: u16, id: u32) -> Device {
-        Device {
-            bus,
-            slot,
-            class: DeviceType::new(class),
-            id: DeviceId::new(id),
+    /// Creates a PCI device at bus and slot address
+    /// Returns None if device does not exist
+    pub fn new(bus: u8, slot: u8) -> Option<Device> {
+        if !device_exists(bus, slot, 0) {
+            None
+        } else {
+            Some(Device { bus, slot })
+        }
+    }
+
+    pub fn class(&self) -> DeviceClass {
+        DeviceClass::new(config_read_u16(self.bus, self.slot, 0, CLASS))
+    }
+
+    pub fn id(&self) -> DeviceId {
+        DeviceId::new(config_read_u32(self.bus, self.slot, 0, VENDOR_ID))
+    }
+
+    pub fn bar(&self, register: u8) -> Option<Bar> {
+        if register > 5 {
+            return None;
+        }
+
+        let is_mmio = |bar| (bar & 1) == 0;
+        let is_64bits = |bar| (bar & 0b110) == 0b100;
+
+        let offset = BAR + register * 4;
+        let bar = config_read_u32(self.bus, self.slot, 0, offset) as u64;
+        if is_mmio(bar) {
+            let mut base = bar & !0xF;
+            let prefetchable = bar & 0b1000 != 0;
+            if is_64bits(bar) {
+                crate::serial_println!("64bits");
+                base += (config_read_u32(self.bus, self.slot, 0, offset + 4) as u64) << 32;
+            }
+            Some(Bar::MMIO {
+                base,
+                size: 0,
+                prefetchable,
+            })
+        } else {
+            Some(Bar::IO {
+                port: bar as u32 & !0b11,
+            })
         }
     }
 }
@@ -117,7 +154,16 @@ fn device_exists(bus: u8, slot: u8, function: u8) -> bool {
 
 pub fn init() {
     let devices = discover_devices();
-    crate::serial_println!("{:x?}", devices);
+    for device in devices.iter() {
+        crate::serial_println!(
+            "Device at ({},{}) {:?} {:x?}, bar0: {:?}",
+            device.bus,
+            device.slot,
+            device.class(),
+            device.id(),
+            device.bar(0).unwrap()
+        );
+    }
     driver::init(&devices);
 }
 
@@ -125,6 +171,14 @@ pub fn init() {
 /// Current implementation does not extend discovery to PCI-to-PCI brigdes
 fn discover_devices() -> Vec<Device> {
     let mut devices = Vec::new();
+    for bus in 0..=255 {
+        for slot in 0..32 {
+            if let Some(device) = Device::new(bus, slot) {
+                devices.push(device);
+            }
+        }
+    }
+    /*
     if is_multi_func(0, 0) {
         for function in 0..8 {
             if device_exists(0, 0, function) {
@@ -134,20 +188,31 @@ fn discover_devices() -> Vec<Device> {
     } else {
         discover_devices_in_bus(0, &mut devices)
     }
+    */
 
     devices
 }
 
 fn discover_devices_in_bus(bus: u8, devices: &mut Vec<Device>) {
     for slot in 0..32 {
-        if device_exists(bus, slot, 0) {
-            let class = config_read_u16(bus, slot, 0, CLASS);
-            let id = config_read_u32(bus, slot, 0, VENDOR_ID);
-            devices.push(Device::new(bus, slot, class, id));
+        if let Some(device) = Device::new(bus, slot) {
+            devices.push(device);
         }
     }
 }
 
 fn is_multi_func(bus: u8, slot: u8) -> bool {
     config_read_u8(bus, slot, 0, HEADER_TYPE) & 0x80 != 0
+}
+
+#[derive(Debug)]
+pub enum Bar {
+    MMIO {
+        base: u64,
+        size: u64,
+        prefetchable: bool,
+    },
+    IO {
+        port: u32,
+    },
 }
