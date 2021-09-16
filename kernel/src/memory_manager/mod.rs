@@ -20,7 +20,7 @@ pub fn mmap(addr: Option<usize>, flags: u64) -> *mut u8 {
     // Identity map if no address is given, use address otherwise
     let addr = addr.unwrap_or(frame.base_addr);
 
-    tables::map_to(addr, frame.base_addr, flags, &mut ALLOCATOR.obtain());
+    tables::map_to(addr, addr, flags, &mut ALLOCATOR.obtain());
     addr as *mut u8
 }
 
