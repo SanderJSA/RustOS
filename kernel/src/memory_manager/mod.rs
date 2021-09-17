@@ -47,7 +47,7 @@ mod test {
 
     #[test_case]
     fn fixed_allocation() {
-        let page = mmap(Some(0xDEADBEEF000), EntryFlag::Writable as u64);
+        let page = mmap(Some(0xBEEF0), EntryFlag::Writable as u64);
         unsafe {
             *page.offset(0) = 204;
             *page.offset(423) = 203;
