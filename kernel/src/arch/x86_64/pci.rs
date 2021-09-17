@@ -14,15 +14,6 @@ const BAR: u8 = 16;
 
 pub fn init() {
     let devices = discover_devices();
-    for device in devices.iter() {
-        crate::serial_println!(
-            "Device at ({},{}) {:?} {:x?}",
-            device.bus,
-            device.slot,
-            device.class(),
-            device.id(),
-        );
-    }
     driver::init(&devices);
 }
 
