@@ -9,7 +9,6 @@ const ENABLE: u32 = 1 << 31;
 const VENDOR_ID: u8 = 0;
 pub const COMMAND: u8 = 4;
 const CLASS: u8 = 10;
-const HEADER_TYPE: u8 = 14;
 const BAR: u8 = 16;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -82,17 +81,23 @@ impl Device {
         let is_64bits = |bar| (bar & 0b110) == 0b100;
 
         let offset = BAR + register * 4;
-        let bar = config_read_u32(self.bus, self.slot, 0, offset) as u64;
+        let bar = config_read_u32(self.bus, self.slot, 0, offset) as usize;
         if is_mmio(bar) {
             let mut base = bar & !0xF;
             let prefetchable = bar & 0b1000 != 0;
             if is_64bits(bar) {
-                crate::serial_println!("64bits");
-                base += (config_read_u32(self.bus, self.slot, 0, offset + 4) as u64) << 32;
+                base += (config_read_u32(self.bus, self.slot, 0, offset + 4) as usize) << 32;
+            }
+            // SAFETY: bar register exists and gets restored after size probing
+            let size;
+            unsafe {
+                config_write_u32(self.bus, self.slot, 0, offset, !0);
+                size = 1 << config_read_u32(self.bus, self.slot, 0, offset).trailing_zeros();
+                config_write_u32(self.bus, self.slot, 0, offset, bar as u32);
             }
             Some(Bar::MMIO {
                 base,
-                size: 0,
+                size,
                 prefetchable,
             })
         } else {
@@ -137,6 +142,9 @@ pub fn config_read_u8(bus: u8, slot: u8, func: u8, offset: u8) -> u8 {
     }
 }
 
+/// Write u16 to PCI device
+/// # Safety
+/// May cause side-effects
 pub unsafe fn config_write_u16(bus: u8, slot: u8, func: u8, offset: u8, data: u16) {
     let address = ((bus as u32) << 16)
         | ((slot as u32 & 0x1F) << 11)
@@ -146,6 +154,20 @@ pub unsafe fn config_write_u16(bus: u8, slot: u8, func: u8, offset: u8, data: u1
 
     port::outd(CONFIG_ADDRESS, address);
     port::outw(CONFIG_DATA, data);
+}
+
+/// Write u32 to PCI device
+/// # Safety
+/// May cause side-effects
+pub unsafe fn config_write_u32(bus: u8, slot: u8, func: u8, offset: u8, data: u32) {
+    let address = ((bus as u32) << 16)
+        | ((slot as u32 & 0x1F) << 11)
+        | ((func as u32 & 0b11) << 8)
+        | (offset as u32 & 0xFC)
+        | ENABLE;
+
+    port::outd(CONFIG_ADDRESS, address);
+    port::outd(CONFIG_DATA, data);
 }
 
 fn device_exists(bus: u8, slot: u8, function: u8) -> bool {
@@ -167,8 +189,6 @@ pub fn init() {
     driver::init(&devices);
 }
 
-/// Discover the devices handled by the PCI host controller
-/// Current implementation does not extend discovery to PCI-to-PCI brigdes
 fn discover_devices() -> Vec<Device> {
     let mut devices = Vec::new();
     for bus in 0..=255 {
@@ -178,38 +198,14 @@ fn discover_devices() -> Vec<Device> {
             }
         }
     }
-    /*
-    if is_multi_func(0, 0) {
-        for function in 0..8 {
-            if device_exists(0, 0, function) {
-                discover_devices_in_bus(function, &mut devices);
-            }
-        }
-    } else {
-        discover_devices_in_bus(0, &mut devices)
-    }
-    */
-
     devices
-}
-
-fn discover_devices_in_bus(bus: u8, devices: &mut Vec<Device>) {
-    for slot in 0..32 {
-        if let Some(device) = Device::new(bus, slot) {
-            devices.push(device);
-        }
-    }
-}
-
-fn is_multi_func(bus: u8, slot: u8) -> bool {
-    config_read_u8(bus, slot, 0, HEADER_TYPE) & 0x80 != 0
 }
 
 #[derive(Debug)]
 pub enum Bar {
     MMIO {
-        base: u64,
-        size: u64,
+        base: usize,
+        size: usize,
         prefetchable: bool,
     },
     IO {
