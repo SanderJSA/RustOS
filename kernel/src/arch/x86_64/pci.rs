@@ -198,6 +198,7 @@ impl DeviceClass {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 pub struct DeviceId {
     vendor_id: u16,
