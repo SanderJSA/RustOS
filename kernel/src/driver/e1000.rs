@@ -1,6 +1,5 @@
 /// e1000 driver based on
 /// https://www.intel.com/content/dam/www/public/us/en/documents/manuals/pcie-gbe-controllers-open-source-manual.pdf
-use crate::arch::paging::tables::EntryFlag;
 use crate::arch::pci::*;
 
 pub const DEVICE_TYPE: DeviceClass = DeviceClass::EthernetController;
@@ -27,16 +26,11 @@ struct E1000 {
 
 impl E1000 {
     pub fn new(device: &Device) -> E1000 {
-        if let Some(Bar::MMIO { base, .. }) = device.bar(Function::Zero, 0) {
-            crate::memory_manager::mmap(
-                Some(base as usize),
-                EntryFlag::Writable as u64
-                    + EntryFlag::WriteThrough as u64
-                    + EntryFlag::NoCache as u64,
-            );
+        if let Some(Bar::MMIO { base, size, .. }) = device.bar(Function::Zero, 0) {
+            crate::memory_manager::mmio_map(base, size);
             E1000 {
                 device: *device,
-                mmio: base as usize,
+                mmio: base,
             }
         } else {
             panic!("Unexpected BAR form");
