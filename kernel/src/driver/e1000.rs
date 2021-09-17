@@ -27,7 +27,7 @@ struct E1000 {
 
 impl E1000 {
     pub fn new(device: &Device) -> E1000 {
-        if let Some(Bar::MMIO { base, .. }) = device.bar(0) {
+        if let Some(Bar::MMIO { base, .. }) = device.bar(Function::Zero, 0) {
             crate::memory_manager::mmap(
                 Some(base as usize),
                 EntryFlag::Writable as u64
@@ -45,7 +45,7 @@ impl E1000 {
 
     pub fn reset(&self) {
         unsafe {
-            self.device.write_u16(0, COMMAND, 0b111);
+            self.device.write_u16(Function::Zero, COMMAND, 0b111);
             // Mask interrupts and clear them
             self.mmio_outd(IMC, 0xFFFFFFFF);
             self.mmio_ind(ICR);
@@ -57,11 +57,17 @@ impl E1000 {
         crate::serial_println!("EEPROM present: {}", self.is_eeprom_present());
     }
 
+    /// Read u32 from device
+    /// # Safety
+    /// Read must be within device boundary
     unsafe fn mmio_ind(&self, reg: u16) -> u32 {
         let addr = (self.mmio + reg as usize) as *const u32;
         addr.read_volatile()
     }
 
+    /// Write u32 to device
+    /// # Safety
+    /// Read must be within device boundary, may cause side effect
     unsafe fn mmio_outd(&self, reg: u16, value: u32) {
         let addr = (self.mmio + reg as usize) as *mut u32;
         addr.write_volatile(value);
