@@ -45,7 +45,7 @@ impl E1000 {
 
     pub fn reset(&self) {
         unsafe {
-            config_write_u16(self.device.bus, self.device.slot, 0, COMMAND, 0b111);
+            self.device.write_u16(0, COMMAND, 0b111);
             // Mask interrupts and clear them
             self.mmio_outd(IMC, 0xFFFFFFFF);
             self.mmio_ind(ICR);
