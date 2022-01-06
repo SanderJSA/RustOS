@@ -7,7 +7,7 @@ pub const PAGE_SIZE: usize = 4096;
 use crate::arch::paging::tables;
 use crate::utils::lazy_static::LazyStatic;
 use frame_allocator::FrameAllocator;
-use tables::EntryFlag;
+pub use tables::EntryFlag;
 
 static ALLOCATOR: LazyStatic<FrameAllocator> = LazyStatic::new(FrameAllocator::new);
 
