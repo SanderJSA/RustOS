@@ -14,13 +14,21 @@ const EERD: u16 = 0x14;
 const IMC: u16 = 0xD8;
 const ICR: u16 = 0xC0;
 
-// RX Registess
+// RX Registers
 const RX_DESC_LO: u16 = 0x2800;
 const RX_DESC_HI: u16 = 0x2804;
 const RX_DESC_LEN: u16 = 0x2808;
 const RX_DESC_HEAD: u16 = 0x2810;
 const RX_DESC_TAIL: u16 = 0x2818;
 const RX_CTRL: u16 = 0x0100;
+
+// TX Registers
+const TX_DESC_LO: u16 = 0x3800;
+const TX_DESC_HI: u16 = 0x3804;
+const TX_DESC_LEN: u16 = 0x3808;
+const TX_DESC_HEAD: u16 = 0x3810;
+const TX_DESC_TAIL: u16 = 0x3818;
+const TX_CTRL: u16 = 0x0400;
 
 const RESET: u32 = 0x4000000;
 const EEPROM_PRESENT: u32 = 1 << 8;
@@ -71,6 +79,7 @@ impl E1000 {
         self.get_mac();
         self.set_link_up();
         self.rx_init();
+        self.tx_init();
     }
 
     fn get_mac(&self) {
@@ -148,10 +157,34 @@ impl E1000 {
         unsafe {
             self.mmio_outd(RX_DESC_LO, descs as u32);
             self.mmio_outd(RX_DESC_HI, (descs >> 32) as u32);
+
             self.mmio_outd(RX_DESC_LEN, (mem::size_of::<RxDesc>() * NB_RX_DESC) as u32);
             self.mmio_outd(RX_DESC_HEAD, 0);
             self.mmio_outd(RX_DESC_TAIL, NB_RX_DESC as u32 - 1);
+
             self.mmio_outd(RX_CTRL, EN | SBP | UPE | MPE | BAM | SECRC | BSEX | BSIZE);
+        }
+    }
+
+    fn tx_init(&self) {
+        // TX_CTL Values
+        const EN: u32 = 1 << 1; // Enable transmitter
+        const PSP: u32 = 1 << 3; // Pad short packets
+        const CT: u32 = 0x0F << 4; // Number of attempts at retransmitting packet
+        const COLD: u32 = 0x3F << 12; // Collision distance
+        const RTLC: u32 = 1 << 24; // Re-transmit on Late Collision
+
+        let descs = self.tx_descs.as_ptr() as u64;
+        // SAFETY: Pointer points to valid rx descriptors ring
+        // However that promise is brittle at the moment, if the structure ever moves that promise
+        // is broken
+        unsafe {
+            self.mmio_outd(TX_DESC_LO, descs as u32);
+            self.mmio_outd(TX_DESC_HI, (descs >> 32) as u32);
+            self.mmio_outd(TX_DESC_LEN, (mem::size_of::<TxDesc>() * NB_RX_DESC) as u32);
+            self.mmio_outd(TX_DESC_HEAD, 0);
+            self.mmio_outd(TX_DESC_TAIL, NB_TX_DESC as u32 - 1);
+            self.mmio_outd(TX_CTRL, EN | PSP | CT | COLD | RTLC);
         }
     }
 }
@@ -171,7 +204,7 @@ impl Default for RxDesc {
     fn default() -> Self {
         RxDesc {
             addr: memory_manager::mmap(None, EntryFlag::Writable as u64) as u64,
-            length: PAGE_SIZE as u16,
+            length: 0,
             checksum: 0,
             status: 0,
             errors: 0,
@@ -195,11 +228,11 @@ struct TxDesc {
 impl Default for TxDesc {
     fn default() -> Self {
         TxDesc {
-            addr: memory_manager::mmap(None, EntryFlag::Writable as u64) as u64,
-            length: PAGE_SIZE as u16,
+            addr: 0,
+            length: 0,
             cso: 0,
             cmd: 0,
-            status: 0,
+            status: 1,
             css: 0,
             special: 0,
         }
