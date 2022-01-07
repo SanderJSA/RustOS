@@ -8,6 +8,7 @@ const ENABLE: u32 = 1 << 31;
 
 const VENDOR_ID: u8 = 0;
 pub const COMMAND: u8 = 4;
+pub const INT_LINE: u8 = 0x3C;
 const CLASS: u8 = 10;
 const HEADER_TYPE: u8 = 14;
 const BAR: u8 = 16;
@@ -134,6 +135,15 @@ impl Device {
         let address = config_address(self.bus, self.slot, func, offset);
         port::outd(CONFIG_ADDRESS, address);
         port::outw(CONFIG_DATA, data);
+    }
+
+    /// Write u8 to PCI device
+    /// # Safety
+    /// May cause side-effects
+    pub unsafe fn write_u8(&self, func: Function, offset: u8, data: u8) {
+        let address = config_address(self.bus, self.slot, func, offset);
+        port::outd(CONFIG_ADDRESS, address);
+        port::outb(CONFIG_DATA, data);
     }
 
     pub fn exists(&self, function: Function) -> bool {

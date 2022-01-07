@@ -56,6 +56,12 @@ extern "x86-interrupt" fn page_fault_handler(stack_frame: InterruptFrame, error_
     panic!();
 }
 
+extern "x86-interrupt" fn ethernet_handler(_stack_frame: InterruptFrame) {
+    crate::serial_println!("etherneted");
+
+    PICS.obtain().end_all_interrupts();
+}
+
 extern "x86-interrupt" fn ata1_handler(_stack_frame: InterruptFrame) {
     PICS.obtain().end_all_interrupts();
 }
@@ -153,6 +159,7 @@ pub enum InterruptIndex {
     PageFault = 14,
     Timer = PIC_1_OFFSET as isize,
     Keyboard,
+    Ethernet = PIC_1_OFFSET as isize + 11,
     PrimaryATA = PIC_1_OFFSET as isize + 14,
     SecondaryATA,
 }
@@ -172,6 +179,7 @@ pub fn init() {
         .insert(PageFault.into(), page_fault_handler as usize, TrapGate)
         .insert(Timer.into(), timer_handler as usize, IntGate)
         .insert(Keyboard.into(), keyboard_handler as usize, IntGate)
+        .insert(Ethernet.into(), ethernet_handler as usize, IntGate)
         .insert(PrimaryATA.into(), ata1_handler as usize, IntGate)
         .insert(SecondaryATA.into(), ata2_handler as usize, IntGate);
 

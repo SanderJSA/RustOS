@@ -2,7 +2,7 @@ use super::port::outb;
 use crate::utils::lazy_static::LazyStatic;
 
 pub const PIC_1_OFFSET: u8 = 32;
-pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
+pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + IRQS_PER_PIC;
 
 const MASTER_PIC: u16 = 0x20;
 const SLAVE_PIC: u16 = 0xA0;
@@ -14,10 +14,12 @@ const ICW1: u8 = 0b00010001;
 const ICW4: u8 = 0b00000001;
 const END_OF_INTERRUPT: u8 = 0x20;
 
+const MASK: u16 = 0;
+
 pub static PICS: LazyStatic<ChainedPics> = LazyStatic::new(ChainedPics::new);
 
 pub fn init() {
-    PICS.obtain();
+    PICS.obtain().set_mask(MASK);
 }
 
 struct Pic {
@@ -44,6 +46,10 @@ impl Pic {
 
     pub unsafe fn end_of_interrupt(&self) {
         outb(self.port, END_OF_INTERRUPT);
+    }
+
+    pub unsafe fn set_mask(&self, mask: u8) {
+        outb(self.port + DATA_OFFSET, mask);
     }
 }
 
@@ -78,6 +84,14 @@ impl ChainedPics {
         unsafe {
             self.master.end_of_interrupt();
             self.slave.end_of_interrupt();
+        }
+    }
+
+    pub fn set_mask(&self, mask: u16) {
+        // SAFETY: Master and slave PIC are both initialized
+        unsafe {
+            self.master.set_mask(mask as u8);
+            self.slave.set_mask((mask >> 8) as u8);
         }
     }
 }
