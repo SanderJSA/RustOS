@@ -6,6 +6,7 @@ use alloc::vec::Vec;
 /// e1000 driver based on
 /// https://www.intel.com/content/dam/www/public/us/en/documents/manuals/pcie-gbe-controllers-open-source-manual.pdf
 use crate::arch::pci::*;
+use crate::driver::ETHERNET_DEVICE;
 use crate::memory_manager::{self, EntryFlag};
 
 pub const DEVICE_TYPE: DeviceClass = DeviceClass::EthernetController;
@@ -40,16 +41,33 @@ const EEPROM_PRESENT: u32 = 1 << 8;
 const NB_RX_DESC: usize = 32;
 const NB_TX_DESC: usize = 8;
 
-pub fn init(device: &Device) -> E1000 {
-    let mut e1000 = E1000::new(device);
-    e1000.reset();
-    crate::serial_println!("reseted e1000");
-    e1000.init();
-    crate::serial_println!("e1000 init");
-    let packet = e1000.create_ethernet_frame(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF], &[0, 1, 2, 3]);
-    crate::serial_println!("sending packet...");
-    e1000.send_packet(&packet);
-    e1000
+pub fn init(device: &Device) {
+    unsafe {
+        ETHERNET_DEVICE = Some(E1000::new(device));
+        if let Some(e1000) = &mut ETHERNET_DEVICE {
+            e1000.reset();
+            crate::serial_println!("reseted e1000");
+            e1000.init();
+            crate::serial_println!("e1000 init");
+            let packet =
+                e1000.create_ethernet_frame(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF], &[0, 1, 2, 3]);
+            crate::serial_println!("sending packet...");
+            e1000.send_packet(&packet);
+
+            /*
+            loop {
+                unsafe {
+                    if e1000.mmio_ind(RX_DESC_HEAD) != 0 {
+                        crate::serial_println!("RX_DESC_HEAD: {}", e1000.mmio_ind(RX_DESC_HEAD));
+                    }
+                    if e1000.mmio_ind(RX_DESC_TAIL) != NB_RX_DESC as u32 - 1 {
+                        crate::serial_println!("RX_DESC_TAIL: {}", e1000.mmio_ind(RX_DESC_TAIL));
+                    }
+                }
+            }
+            */
+        }
+    }
 }
 
 pub struct E1000 {
@@ -145,7 +163,6 @@ impl E1000 {
         self.enable_interrupts();
         self.rx_init();
         self.tx_init();
-        crate::serial_println!("int: {}", self.device.read_u8(Function::Zero, INT_LINE));
         unsafe {
             self.device.write_u8(Function::Zero, INT_LINE, 11);
         }
@@ -162,7 +179,7 @@ impl E1000 {
         let val = self.read_eeprom(2);
         self.mac_address[4] = val as u8;
         self.mac_address[5] = (val >> 8) as u8;
-        crate::serial_print!(
+        crate::serial_println!(
             "MAC address: {}:{}:{}:{}:{}:{}",
             self.mac_address[0],
             self.mac_address[1],
@@ -176,7 +193,7 @@ impl E1000 {
     /// Read u32 from device
     /// # Safety
     /// Read must be within device boundary, may cause side effect
-    unsafe fn mmio_ind(&self, reg: u16) -> u32 {
+    pub unsafe fn mmio_ind(&self, reg: u16) -> u32 {
         let addr = (self.mmio + reg as usize) as *const u32;
         addr.read_volatile()
     }
@@ -267,15 +284,20 @@ impl E1000 {
             self.mmio_outd(TX_DESC_HEAD, 0);
             self.mmio_outd(TX_DESC_TAIL, 0);
             self.mmio_outd(TX_CTRL, EN | PSP | CT | COLD | RTLC);
+
+            self.mmio_outd(TX_CTRL, 0b0110000000000111111000011111010);
+            self.mmio_outd(0x0410, 0x00702008);
         }
     }
 
     fn enable_interrupts(&self) {
         // Enable all interupts except parity errors and TxDesc writeback and TxQueue_empty
         unsafe {
-            self.mmio_outd(IMS, 1 | 1 << 2 | 1 << 3 | 1 << 4 | 1 << 7);
-            //self.mmio_outd(IMS, 0x1F6DC);
+            //self.mmio_outd(IMS, 1 | 1 << 2 | 1 << 3 | 1 << 4 | 1 << 7);
+            self.mmio_outd(IMS, 0x1F6DC);
+            self.mmio_outd(IMS, !4 & 0xFF);
             //self.mmio_outd(IMS, 0x1F6DF);
+            self.mmio_ind(0xC0);
         }
     }
 }

@@ -95,7 +95,13 @@ impl BuildConfig {
             .arg("-device")
             .arg("isa-debug-exit,iobase=0xf4,iosize=0x04")
             .arg("-serial")
-            .arg("stdio");
+            .arg("stdio")
+            .arg("-netdev")
+            .arg("user,id=u1")
+            .arg("-device")
+            .arg("e1000,netdev=u1")
+            .arg("-object")
+            .arg("filter-dump,id=f1,netdev=u1,file=dump.dat");
         if self.is_test {
             cmd.arg("-display").arg("none");
         }

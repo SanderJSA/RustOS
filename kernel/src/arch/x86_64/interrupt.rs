@@ -57,8 +57,17 @@ extern "x86-interrupt" fn page_fault_handler(stack_frame: InterruptFrame, error_
 }
 
 extern "x86-interrupt" fn ethernet_handler(_stack_frame: InterruptFrame) {
-    crate::serial_println!("etherneted");
+    crate::serial_println!("ethernet interrupt");
 
+    unsafe {
+        if let Some(dev) = &crate::driver::ETHERNET_DEVICE {
+            let int_cause = dev.mmio_ind(0xC0);
+            match int_cause {
+                2 => crate::serial_println!("Packets transmetted"),
+                _ => crate::serial_println!("interrupt cause: {}", int_cause),
+            }
+        }
+    }
     PICS.obtain().end_all_interrupts();
 }
 
