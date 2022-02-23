@@ -3,6 +3,7 @@ use super::pic::{PICS, PIC_1_OFFSET};
 use super::port;
 use crate::driver::ps2_keyboard;
 use crate::println;
+use core::arch::asm;
 use core::mem::{self, MaybeUninit};
 
 const MAX_ENTRIES: usize = 256;

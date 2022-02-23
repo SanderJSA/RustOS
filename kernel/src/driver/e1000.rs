@@ -1,5 +1,5 @@
 use core::default::Default;
-use core::mem;
+use core::{mem, ptr};
 
 use alloc::vec::Vec;
 
@@ -38,7 +38,7 @@ const TX_CTRL: u16 = 0x0400;
 const RESET: u32 = 0x4000000;
 const EEPROM_PRESENT: u32 = 1 << 8;
 
-const NB_RX_DESC: usize = 32;
+const NB_RX_DESC: usize = 16;
 const NB_TX_DESC: usize = 8;
 
 pub fn init(device: &Device) {
@@ -49,12 +49,12 @@ pub fn init(device: &Device) {
             crate::serial_println!("reseted e1000");
             e1000.init();
             crate::serial_println!("e1000 init");
+            let payload = e1000.create_arp_payload();
             let packet =
-                e1000.create_ethernet_frame(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF], &[0, 1, 2, 3]);
+                e1000.create_ethernet_frame(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF], &payload);
             crate::serial_println!("sending packet...");
             e1000.send_packet(&packet);
 
-            /*
             loop {
                 unsafe {
                     if e1000.mmio_ind(RX_DESC_HEAD) != 0 {
@@ -65,7 +65,6 @@ pub fn init(device: &Device) {
                     }
                 }
             }
-            */
         }
     }
 }
@@ -73,8 +72,8 @@ pub fn init(device: &Device) {
 pub struct E1000 {
     device: Device,
     pub mmio: usize,
-    rx_descs: [RxDesc; NB_RX_DESC],
-    tx_descs: [TxDesc; NB_TX_DESC],
+    rx_descs: &'static mut [RxDesc; NB_RX_DESC],
+    tx_descs: &'static mut [TxDesc; NB_TX_DESC],
     rx_cur: usize,
     tx_cur: usize,
     mac_address: [u8; 6],
@@ -84,14 +83,28 @@ impl E1000 {
     pub fn new(device: &Device) -> E1000 {
         if let Some(Bar::MMIO { base, size, .. }) = device.bar(Function::Zero, 0) {
             crate::memory_manager::mmio_map(base, size);
-            E1000 {
-                device: *device,
-                mmio: base,
-                rx_descs: Default::default(),
-                tx_descs: Default::default(),
-                rx_cur: 0,
-                tx_cur: 0,
-                mac_address: Default::default(),
+            let rx_descs_ptr = memory_manager::mmap(
+                None,
+                EntryFlag::Writable as u64
+                    + EntryFlag::WriteThrough as u64
+                    + EntryFlag::NoCache as u64,
+            ) as *mut _;
+            let tx_descs_ptr = memory_manager::mmap(
+                None,
+                EntryFlag::Writable as u64
+                    + EntryFlag::WriteThrough as u64
+                    + EntryFlag::NoCache as u64,
+            ) as *mut _;
+            unsafe {
+                E1000 {
+                    device: *device,
+                    mmio: base,
+                    rx_descs: &mut *rx_descs_ptr,
+                    tx_descs: &mut *tx_descs_ptr,
+                    rx_cur: 0,
+                    tx_cur: 0,
+                    mac_address: Default::default(),
+                }
             }
         } else {
             panic!("Unexpected BAR form");
@@ -131,14 +144,39 @@ impl E1000 {
         frame.push(start_of_frame_delim);
         frame.extend(dst);
         frame.extend(self.mac_address);
-        frame.push(payload.len() as u8);
-        frame.push((payload.len() >> 8) as u8);
+        frame.push(0x0806u16 as u8);
+        frame.push((0x0806 >> 8) as u8);
+        //frame.push(payload.len() as u8);
+        //frame.push((payload.len() >> 8) as u8);
         frame.extend(payload);
 
         frame
+    }
 
-        //frame.push(0x0806u16 as u8);
-        //frame.push((0x0806 >> 8) as u8);
+    pub fn create_arp_payload(&self) -> Vec<u8> {
+        let mut payload = Vec::new();
+        payload.push(1);
+        payload.push(0);
+
+        payload.push(0x0800u16 as u8);
+        payload.push((0x0800 >> 8) as u8);
+
+        payload.push(6);
+        payload.push(4);
+
+        payload.push(1);
+        payload.push(0);
+
+        payload.push(1);
+        payload.push(0);
+
+        payload.extend(self.mac_address);
+
+        payload.extend(&[192, 168, 0, 199]);
+        payload.extend(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]);
+        payload.extend(&[192, 168, 0, 1]);
+
+        payload
     }
 
     pub fn reset(&self) {
@@ -278,12 +316,14 @@ impl E1000 {
         // However that promise is brittle at the moment, if the structure ever moves that promise
         // is broken
         unsafe {
+            crate::serial_println!("tx addr: {}", descs);
             self.mmio_outd(TX_DESC_LO, descs as u32);
             self.mmio_outd(TX_DESC_HI, (descs >> 32) as u32);
             self.mmio_outd(TX_DESC_LEN, (mem::size_of::<TxDesc>() * NB_RX_DESC) as u32);
             self.mmio_outd(TX_DESC_HEAD, 0);
             self.mmio_outd(TX_DESC_TAIL, 0);
             self.mmio_outd(TX_CTRL, EN | PSP | CT | COLD | RTLC);
+            crate::serial_println!("tx addr: {}", descs);
 
             self.mmio_outd(TX_CTRL, 0b0110000000000111111000011111010);
             self.mmio_outd(0x0410, 0x00702008);

@@ -1,3 +1,4 @@
+use core::arch::asm;
 use core::mem::{self, MaybeUninit};
 
 const KERNEL_RING: u8 = 0;

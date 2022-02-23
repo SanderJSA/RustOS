@@ -9,6 +9,8 @@ pub mod pic;
 pub mod port;
 pub mod serial;
 
+use core::arch::asm;
+
 #[allow(dead_code)]
 #[repr(u32)]
 pub enum QemuExitCode {

@@ -1,10 +1,10 @@
 #![no_std]
 #![cfg_attr(test, no_main)]
-#![feature(asm)]
-#![feature(global_asm)]
+#![feature(iter_intersperse)]
 #![feature(abi_x86_interrupt)]
 #![feature(custom_test_frameworks)]
 #![feature(alloc_error_handler)]
+#![feature(asm_sym)]
 #![test_runner(test::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 #![warn(clippy::all)]
@@ -21,6 +21,7 @@ mod utils;
 
 pub use arch::{ata, serial};
 pub use arch::{exit_qemu, QemuExitCode};
+use core::arch::global_asm;
 pub use tty::run_tty;
 
 global_asm!(include_str!("bootloader/stage1.s"));

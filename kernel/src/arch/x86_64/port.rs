@@ -1,3 +1,4 @@
+use core::arch::asm;
 /// Send a u8 to IO `port`
 ///
 /// # Safety
