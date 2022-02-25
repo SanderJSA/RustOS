@@ -6,6 +6,7 @@ use alloc::vec::Vec;
 /// e1000 driver based on
 /// https://www.intel.com/content/dam/www/public/us/en/documents/manuals/pcie-gbe-controllers-open-source-manual.pdf
 use crate::arch::pci::*;
+use crate::arch::pic::PICS;
 use crate::driver::ETHERNET_DEVICE;
 use crate::memory_manager::{self, EntryFlag};
 
@@ -34,6 +35,7 @@ const TX_DESC_LEN: u16 = 0x3808;
 const TX_DESC_HEAD: u16 = 0x3810;
 const TX_DESC_TAIL: u16 = 0x3818;
 const TX_CTRL: u16 = 0x0400;
+const TIPG: u16 = 0x0410;
 
 const RESET: u32 = 0x4000000;
 const EEPROM_PRESENT: u32 = 1 << 8;
@@ -46,13 +48,19 @@ pub fn init(device: &Device) {
         ETHERNET_DEVICE = Some(E1000::new(device));
         if let Some(e1000) = &mut ETHERNET_DEVICE {
             e1000.reset();
-            crate::serial_println!("reseted e1000");
             e1000.init();
             crate::serial_println!("e1000 init");
+            let status = e1000.mmio_ind(8);
+            crate::serial_println!(
+                "Link status is up: {}, speed {}",
+                status & 3 != 0,
+                (status & (3 << 6) >> 6)
+            );
             let payload = e1000.create_arp_payload();
             let packet =
                 e1000.create_ethernet_frame(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF], &payload);
             crate::serial_println!("sending packet...");
+            e1000.send_packet(&packet);
             e1000.send_packet(&packet);
 
             loop {
@@ -116,23 +124,25 @@ impl E1000 {
         const IFCS: u8 = 1 << 1; // Insert FCS
         const RS: u8 = 1 << 3; // Report status
 
-        let desc = &mut self.tx_descs[self.tx_cur];
-        desc.addr = data.as_ptr() as u64;
-        desc.length = data.len() as u16;
-        desc.cmd = EOP | IFCS | RS;
-        desc.status = 0;
-
+        set_interrupt_enabled(false);
         unsafe {
-            self.mmio_outd(TX_DESC_TAIL, self.tx_cur as u32);
+            let desc = &mut self.tx_descs[self.tx_cur] as &mut TxDesc;
+            desc.addr = data.as_ptr() as u64;
+            desc.length = data.len() as u16;
+            desc.cmd = EOP | IFCS | RS;
+            desc.status = 0;
+
+            self.mmio_outd(TX_DESC_TAIL, self.tx_cur as u32 + 1);
             while (&self.tx_descs[self.tx_cur] as *const TxDesc)
                 .read_volatile()
                 .status
-                != 0
+                == 0
             {
                 crate::serial_println!("sending")
             }
         }
         self.tx_cur = (self.tx_cur + 1) % NB_TX_DESC;
+        set_interrupt_enabled(false);
         crate::serial_println!("done");
     }
 
@@ -140,8 +150,9 @@ impl E1000 {
         let preamble_byte: u8 = 0b10101010;
         let start_of_frame_delim: u8 = 0b10101011;
 
-        let mut frame = alloc::vec![preamble_byte; 7];
-        frame.push(start_of_frame_delim);
+        //let mut frame = alloc::vec![preamble_byte; 7];
+        //frame.push(start_of_frame_delim);
+        let mut frame = Vec::new();
         frame.extend(dst);
         frame.extend(self.mac_address);
         frame.push(0x0806u16 as u8);
@@ -316,30 +327,39 @@ impl E1000 {
         // However that promise is brittle at the moment, if the structure ever moves that promise
         // is broken
         unsafe {
-            crate::serial_println!("tx addr: {}", descs);
             self.mmio_outd(TX_DESC_LO, descs as u32);
             self.mmio_outd(TX_DESC_HI, (descs >> 32) as u32);
-            self.mmio_outd(TX_DESC_LEN, (mem::size_of::<TxDesc>() * NB_RX_DESC) as u32);
+            self.mmio_outd(TX_DESC_LEN, (mem::size_of::<TxDesc>() * NB_TX_DESC) as u32);
             self.mmio_outd(TX_DESC_HEAD, 0);
             self.mmio_outd(TX_DESC_TAIL, 0);
             self.mmio_outd(TX_CTRL, EN | PSP | CT | COLD | RTLC);
-            crate::serial_println!("tx addr: {}", descs);
 
-            self.mmio_outd(TX_CTRL, 0b0110000000000111111000011111010);
-            self.mmio_outd(0x0410, 0x00702008);
+            // The recommended TIPG value to achieve 802.3 compliant minimum transmit IPG values
+            // in full and half duplex is 00702008h.
+            self.mmio_outd(TIPG, 0x00702008);
         }
     }
 
     fn enable_interrupts(&self) {
-        // Enable all interupts except parity errors and TxDesc writeback and TxQueue_empty
+        const TXDW: u32 = 1; // Transmit Descriptor Written Back
+        const TXQE: u32 = 1 << 1; // Transmit Queue Empty
+        const LSC: u32 = 1 << 2; // Link Status Change.
+        const RXSEQ: u32 = 1 << 3; // Receive Sequence Error.
+        const RXDMT0: u32 = 1 << 4; // Receive Descriptor Minimum Threshold hit.
+        const RXO: u32 = 1 << 6; // Receiver Overrun. Sets on Receive Data FIFO Overrun
+        const RXT0: u32 = 1 << 7; // Receiver Timer Interrupt.
         unsafe {
-            //self.mmio_outd(IMS, 1 | 1 << 2 | 1 << 3 | 1 << 4 | 1 << 7);
-            self.mmio_outd(IMS, 0x1F6DC);
-            self.mmio_outd(IMS, !4 & 0xFF);
-            //self.mmio_outd(IMS, 0x1F6DF);
-            self.mmio_ind(0xC0);
+            self.mmio_outd(IMS, TXDW | TXQE | LSC | RXSEQ | RXDMT0 | RXO | RXT0);
+            self.mmio_ind(0xC0); // Clear previous interrupts
         }
     }
+}
+
+fn set_interrupt_enabled(is_enabled: bool) {
+    PICS.obtain().set_mask(match is_enabled {
+        true => 1 << 11,
+        false => 0,
+    });
 }
 
 #[repr(C)]
@@ -356,7 +376,12 @@ struct RxDesc {
 impl Default for RxDesc {
     fn default() -> Self {
         RxDesc {
-            addr: memory_manager::mmap(None, EntryFlag::Writable as u64) as u64,
+            addr: memory_manager::mmap(
+                None,
+                EntryFlag::Writable as u64
+                    + EntryFlag::WriteThrough as u64
+                    + EntryFlag::NoCache as u64,
+            ) as u64,
             length: 0,
             checksum: 0,
             status: 0,

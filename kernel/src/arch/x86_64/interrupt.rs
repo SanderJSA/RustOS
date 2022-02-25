@@ -1,7 +1,7 @@
 use super::gdt::KERNEL_CODE_SEG;
 use super::pic::{PICS, PIC_1_OFFSET};
 use super::port;
-use crate::driver::ps2_keyboard;
+use crate::driver::{ps2_keyboard, ETHERNET_DEVICE};
 use crate::println;
 use core::arch::asm;
 use core::mem::{self, MaybeUninit};
@@ -58,14 +58,25 @@ extern "x86-interrupt" fn page_fault_handler(stack_frame: InterruptFrame, error_
 }
 
 extern "x86-interrupt" fn ethernet_handler(_stack_frame: InterruptFrame) {
-    crate::serial_println!("ethernet interrupt");
-
     unsafe {
         if let Some(dev) = &crate::driver::ETHERNET_DEVICE {
             let int_cause = dev.mmio_ind(0xC0);
             match int_cause {
-                2 => crate::serial_println!("Packets transmetted"),
-                _ => crate::serial_println!("interrupt cause: {}", int_cause),
+                3 => {
+                    crate::println!("Packets buffered");
+                    /*
+                    if let Some(e1000) = &mut ETHERNET_DEVICE {
+                        let payload = e1000.create_arp_payload();
+                        let packet = e1000
+                            .create_ethernet_frame(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF], &payload);
+                        crate::println!("sending packet...");
+                        e1000.send_packet(&packet);
+                    }
+                    */
+                }
+                2 => crate::println!("Packets transmitted"),
+                4 => crate::println!("Link Status Change"),
+                _ => crate::println!("interrupt cause: {}", int_cause),
             }
         }
     }
@@ -80,7 +91,11 @@ extern "x86-interrupt" fn ata2_handler(_stack_frame: InterruptFrame) {
     PICS.obtain().end_all_interrupts();
 }
 
-#[derive(Default, Copy, Clone)]
+extern "x86-interrupt" fn default_handler(stack_frame: InterruptFrame) {
+    crate::serial_println!("Default interreupt triggered at {:?}", stack_frame);
+}
+
+#[derive(Copy, Clone)]
 #[repr(C, packed)]
 struct InterruptGate {
     offset_low: u16,
@@ -116,6 +131,12 @@ impl InterruptGate {
             offset_high: (offset >> 32) as u32,
             zero: 0,
         }
+    }
+}
+
+impl Default for InterruptGate {
+    fn default() -> Self {
+        InterruptGate::new(default_handler as usize, GateType::IntGate)
     }
 }
 
