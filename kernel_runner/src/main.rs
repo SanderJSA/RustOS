@@ -97,7 +97,7 @@ impl BuildConfig {
             .arg("-serial")
             .arg("stdio")
             .arg("-netdev")
-            .arg("user,id=u1")
+            .arg("user,id=u1,hostfwd=tcp::8080-:80")
             .arg("-device")
             .arg("e1000,netdev=u1")
             .arg("-object")

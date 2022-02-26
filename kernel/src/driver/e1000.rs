@@ -125,13 +125,13 @@ impl E1000 {
         const RS: u8 = 1 << 3; // Report status
 
         set_interrupt_enabled(false);
-        unsafe {
-            let desc = &mut self.tx_descs[self.tx_cur] as &mut TxDesc;
-            desc.addr = data.as_ptr() as u64;
-            desc.length = data.len() as u16;
-            desc.cmd = EOP | IFCS | RS;
-            desc.status = 0;
+        let desc = &mut self.tx_descs[self.tx_cur] as &mut TxDesc;
+        desc.addr = data.as_ptr() as u64;
+        desc.length = data.len() as u16;
+        desc.cmd = EOP | IFCS | RS;
+        desc.status = 0;
 
+        unsafe {
             self.mmio_outd(TX_DESC_TAIL, self.tx_cur as u32 + 1);
             while (&self.tx_descs[self.tx_cur] as *const TxDesc)
                 .read_volatile()
@@ -147,42 +147,21 @@ impl E1000 {
     }
 
     pub fn create_ethernet_frame(&self, dst: &[u8; 6], payload: &[u8]) -> Vec<u8> {
-        let preamble_byte: u8 = 0b10101010;
-        let start_of_frame_delim: u8 = 0b10101011;
+        let arp_ethertype = 0x0806u16;
 
-        //let mut frame = alloc::vec![preamble_byte; 7];
-        //frame.push(start_of_frame_delim);
-        let mut frame = Vec::new();
-        frame.extend(dst);
+        let mut frame: Vec<u8> = dst.to_vec();
         frame.extend(self.mac_address);
-        frame.push(0x0806u16 as u8);
-        frame.push((0x0806 >> 8) as u8);
-        //frame.push(payload.len() as u8);
-        //frame.push((payload.len() >> 8) as u8);
+        frame.push((arp_ethertype >> 8) as u8);
+        frame.push(arp_ethertype as u8);
         frame.extend(payload);
 
         frame
     }
 
     pub fn create_arp_payload(&self) -> Vec<u8> {
-        let mut payload = Vec::new();
-        payload.push(1);
-        payload.push(0);
-
-        payload.push(0x0800u16 as u8);
-        payload.push((0x0800 >> 8) as u8);
-
-        payload.push(6);
-        payload.push(4);
-
-        payload.push(1);
-        payload.push(0);
-
-        payload.push(1);
-        payload.push(0);
+        let mut payload = alloc::vec![0, 1, 8, 0, 6, 4, 0, 1];
 
         payload.extend(self.mac_address);
-
         payload.extend(&[192, 168, 0, 199]);
         payload.extend(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]);
         payload.extend(&[192, 168, 0, 1]);
@@ -287,7 +266,7 @@ impl E1000 {
         }
     }
 
-    fn rx_init(&self) {
+    fn rx_init(&mut self) {
         // RX_CTL Values
         const EN: u32 = 1 << 1; // Enable receiver
         const SBP: u32 = 1 << 2; // Store bad packets
@@ -297,6 +276,10 @@ impl E1000 {
         const BSIZE: u32 = 11 << 16; // Set buffer size to 4096
         const BSEX: u32 = 1 << 25; //
         const SECRC: u32 = 1 << 26; // Strip Ethernet CRC from incoming packet
+
+        for descs in self.rx_descs.iter_mut() {
+            *descs = RxDesc::default();
+        }
 
         let descs = self.rx_descs.as_ptr() as u64;
         // SAFETY: Pointer points to valid rx descriptors ring
