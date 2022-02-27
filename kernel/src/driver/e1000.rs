@@ -8,17 +8,19 @@ use alloc::vec::Vec;
 use crate::arch::pci::*;
 use crate::arch::pic::PICS;
 use crate::driver::ETHERNET_DEVICE;
-use crate::memory_manager::{self, EntryFlag};
+use crate::memory_manager::{self, EntryFlag, PAGE_SIZE};
 
 pub const DEVICE_TYPE: DeviceClass = DeviceClass::EthernetController;
 
 // Registers
 const CTRL: u16 = 0;
+const STATUS: u16 = 8;
 const EEC: u16 = 0x10;
 const EERD: u16 = 0x14;
 const IMC: u16 = 0xD8;
 const ICR: u16 = 0xC0;
 const IMS: u16 = 0xD0;
+const MULTICAST_TABLE: u16 = 0x5200;
 
 // RX Registers
 const RX_DESC_LO: u16 = 0x2800;
@@ -43,36 +45,16 @@ const EEPROM_PRESENT: u32 = 1 << 8;
 const NB_RX_DESC: usize = 16;
 const NB_TX_DESC: usize = 8;
 
+const MMAP_FLAGS: u64 =
+    EntryFlag::Writable as u64 + EntryFlag::WriteThrough as u64 + EntryFlag::NoCache as u64;
+
 pub fn init(device: &Device) {
     unsafe {
         ETHERNET_DEVICE = Some(E1000::new(device));
         if let Some(e1000) = &mut ETHERNET_DEVICE {
             e1000.reset();
             e1000.init();
-            crate::serial_println!("e1000 init");
-            let status = e1000.mmio_ind(8);
-            crate::serial_println!(
-                "Link status is up: {}, speed {}",
-                status & 3 != 0,
-                (status & (3 << 6) >> 6)
-            );
-            let payload = e1000.create_arp_payload();
-            let packet =
-                e1000.create_ethernet_frame(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF], &payload);
-            crate::serial_println!("sending packet...");
-            e1000.send_packet(&packet);
-            e1000.send_packet(&packet);
-
-            loop {
-                unsafe {
-                    if e1000.mmio_ind(RX_DESC_HEAD) != 0 {
-                        crate::serial_println!("RX_DESC_HEAD: {}", e1000.mmio_ind(RX_DESC_HEAD));
-                    }
-                    if e1000.mmio_ind(RX_DESC_TAIL) != NB_RX_DESC as u32 - 1 {
-                        crate::serial_println!("RX_DESC_TAIL: {}", e1000.mmio_ind(RX_DESC_TAIL));
-                    }
-                }
-            }
+            crate::serial_println!("Link status is up: {}", e1000.mmio_ind(STATUS) & 3 != 0);
         }
     }
 }
@@ -91,28 +73,21 @@ impl E1000 {
     pub fn new(device: &Device) -> E1000 {
         if let Some(Bar::MMIO { base, size, .. }) = device.bar(Function::Zero, 0) {
             crate::memory_manager::mmio_map(base, size);
-            let rx_descs_ptr = memory_manager::mmap(
-                None,
-                EntryFlag::Writable as u64
-                    + EntryFlag::WriteThrough as u64
-                    + EntryFlag::NoCache as u64,
-            ) as *mut _;
-            let tx_descs_ptr = memory_manager::mmap(
-                None,
-                EntryFlag::Writable as u64
-                    + EntryFlag::WriteThrough as u64
-                    + EntryFlag::NoCache as u64,
-            ) as *mut _;
-            unsafe {
-                E1000 {
-                    device: *device,
-                    mmio: base,
-                    rx_descs: &mut *rx_descs_ptr,
-                    tx_descs: &mut *tx_descs_ptr,
-                    rx_cur: 0,
-                    tx_cur: 0,
-                    mac_address: Default::default(),
-                }
+            assert!(mem::size_of::<[RxDesc; NB_RX_DESC]>() <= PAGE_SIZE);
+            assert!(mem::size_of::<[TxDesc; NB_TX_DESC]>() <= PAGE_SIZE);
+            // SAFETY: Descriptors fit within allocated memory
+            // Descriptors need to point to the same memory region even if the structure is moved
+            // As it is the memory region used by hardware
+            let rx_descs = unsafe { &mut *(memory_manager::mmap(None, MMAP_FLAGS) as *mut _) };
+            let tx_descs = unsafe { &mut *(memory_manager::mmap(None, MMAP_FLAGS) as *mut _) };
+            E1000 {
+                device: *device,
+                mmio: base,
+                rx_descs,
+                tx_descs,
+                rx_cur: 0,
+                tx_cur: 0,
+                mac_address: Default::default(),
             }
         } else {
             panic!("Unexpected BAR form");
@@ -131,42 +106,28 @@ impl E1000 {
         desc.cmd = EOP | IFCS | RS;
         desc.status = 0;
 
+        let next_tx = (self.tx_cur + 1) % NB_TX_DESC;
         unsafe {
-            self.mmio_outd(TX_DESC_TAIL, self.tx_cur as u32 + 1);
+            self.mmio_outd(TX_DESC_TAIL, next_tx as u32);
             while (&self.tx_descs[self.tx_cur] as *const TxDesc)
                 .read_volatile()
                 .status
                 == 0
-            {
-                crate::serial_println!("sending")
-            }
+            {}
         }
-        self.tx_cur = (self.tx_cur + 1) % NB_TX_DESC;
+        self.tx_cur = next_tx;
         set_interrupt_enabled(false);
         crate::serial_println!("done");
     }
 
-    pub fn create_ethernet_frame(&self, dst: &[u8; 6], payload: &[u8]) -> Vec<u8> {
-        let arp_ethertype = 0x0806u16;
-
+    pub fn create_ethernet_frame(&self, dst: &[u8; 6], ethertype: u16, payload: &[u8]) -> Vec<u8> {
         let mut frame: Vec<u8> = dst.to_vec();
         frame.extend(self.mac_address);
-        frame.push((arp_ethertype >> 8) as u8);
-        frame.push(arp_ethertype as u8);
+        frame.push((ethertype >> 8) as u8);
+        frame.push(ethertype as u8);
         frame.extend(payload);
 
         frame
-    }
-
-    pub fn create_arp_payload(&self) -> Vec<u8> {
-        let mut payload = alloc::vec![0, 1, 8, 0, 6, 4, 0, 1];
-
-        payload.extend(self.mac_address);
-        payload.extend(&[192, 168, 0, 199]);
-        payload.extend(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]);
-        payload.extend(&[192, 168, 0, 1]);
-
-        payload
     }
 
     pub fn reset(&self) {
@@ -183,39 +144,27 @@ impl E1000 {
         crate::serial_println!("EEPROM present: {}", self.is_eeprom_present());
         self.set_mac();
         self.set_link_up();
+        // Empty Multicast table array
         for i in 0..128 {
+            // SAFETY: MULTICAST_TABLE array is a valid memory region
             unsafe {
-                self.mmio_outd(0x5200 + i * 4, 0);
+                self.mmio_outd(MULTICAST_TABLE + i * 4, 0);
             }
         }
         self.enable_interrupts();
         self.rx_init();
         self.tx_init();
-        unsafe {
-            self.device.write_u8(Function::Zero, INT_LINE, 11);
-        }
-        crate::serial_println!("int: {}", self.device.read_u8(Function::Zero, INT_LINE));
     }
 
     fn set_mac(&mut self) {
-        let val = self.read_eeprom(0);
-        self.mac_address[0] = val as u8;
-        self.mac_address[1] = (val >> 8) as u8;
-        let val = self.read_eeprom(1);
-        self.mac_address[2] = val as u8;
-        self.mac_address[3] = (val >> 8) as u8;
-        let val = self.read_eeprom(2);
-        self.mac_address[4] = val as u8;
-        self.mac_address[5] = (val >> 8) as u8;
-        crate::serial_println!(
-            "MAC address: {}:{}:{}:{}:{}:{}",
-            self.mac_address[0],
-            self.mac_address[1],
-            self.mac_address[2],
-            self.mac_address[3],
-            self.mac_address[4],
-            self.mac_address[5]
-        );
+        crate::serial_print!("MAC address ");
+        for i in 0..3 {
+            let val = self.read_eeprom(i as u16);
+            self.mac_address[i] = val as u8;
+            self.mac_address[i + 1] = (val >> 8) as u8;
+            crate::serial_print!(":{:X}:{:X}", self.mac_address[i], self.mac_address[i + 1]);
+        }
+        crate::serial_println!("");
     }
 
     /// Read u32 from device
@@ -283,8 +232,6 @@ impl E1000 {
 
         let descs = self.rx_descs.as_ptr() as u64;
         // SAFETY: Pointer points to valid rx descriptors ring
-        // However that promise is brittle at the moment, if the structure ever moves that promise
-        // is broken
         unsafe {
             self.mmio_outd(RX_DESC_LO, descs as u32);
             self.mmio_outd(RX_DESC_HI, (descs >> 32) as u32);
@@ -307,8 +254,6 @@ impl E1000 {
 
         let descs = self.tx_descs.as_ptr() as u64;
         // SAFETY: Pointer points to valid rx descriptors ring
-        // However that promise is brittle at the moment, if the structure ever moves that promise
-        // is broken
         unsafe {
             self.mmio_outd(TX_DESC_LO, descs as u32);
             self.mmio_outd(TX_DESC_HI, (descs >> 32) as u32);
@@ -359,12 +304,7 @@ struct RxDesc {
 impl Default for RxDesc {
     fn default() -> Self {
         RxDesc {
-            addr: memory_manager::mmap(
-                None,
-                EntryFlag::Writable as u64
-                    + EntryFlag::WriteThrough as u64
-                    + EntryFlag::NoCache as u64,
-            ) as u64,
+            addr: memory_manager::mmap(None, MMAP_FLAGS) as u64,
             length: 0,
             checksum: 0,
             status: 0,
